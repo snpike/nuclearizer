@@ -225,23 +225,19 @@ bool MModuleDepthCalibration2024::AnalyzeEvent(MReadOutAssembly* Event)
       }
     }
 
-    // GRADE=5 is some complicated geometry with multiple hits on a single strip. 
-    // GRADE=4 means there are more than 2 strip hits on one or both sides.
-    else if( Grade > 3 ){
+    // GRADE=5 is some complicated geometry with multiple hits on a single strip. GRADE=6 means not all strips are adjacent.
+    else if( Grade > 4 ) {
       H->SetNoDepth();
       Event->SetDepthCalibrationIncomplete();
-      if(Grade==4){
-        ++m_Error4;
-      }
-      else if(Grade==5){
+      if(Grade==5) {
         ++m_Error5;
       }
-      else if(Grade==6){
+      else if(Grade==6) {
         ++m_Error6;
       }
     }
 
-    // If the Grade is 0-3, we can handle it.
+    // If the Grade is 0-4, we can handle it.
     else {
 
       MVector LocalPosition, PositionResolution, GlobalPosition, GlobalResolution, LocalOrigin;
