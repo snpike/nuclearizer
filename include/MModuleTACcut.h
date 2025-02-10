@@ -17,6 +17,7 @@
 
 
 // Standard libs:
+#include <algorithm>
 
 // ROOT libs:
 #include "TGClient.h"
