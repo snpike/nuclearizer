@@ -62,6 +62,7 @@ MModuleStripPairingChiSquare::MModuleStripPairingChiSquare() : MModule()
   // Set all modules, which have to be done before this module
   AddPreceedingModuleType(MAssembly::c_EventLoader);
   AddPreceedingModuleType(MAssembly::c_EnergyCalibration);
+  AddPreceedingModuleType(MAssembly::c_TACcut, false);
 
   // Set all types this modules handles
   AddModuleType(MAssembly::c_StripPairing);
@@ -402,33 +403,110 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
           //           PrintCombi(NCombi[p]);
           //         }
           double ChiSquare = 0;
+          vector<double> HVtauList;
+          vector<double> LVtauList;
+          vector<double> HVtauResolutionList;
+          vector<double> LVtauResolutionList;
+          double HVtauMeanResolution = 0;
+          double LVtauMeanResolution = 0;
+          double HVtauMean = 0;
+          double LVtauMean = 0;
 
           for (unsigned int en = 0; en < MinSize; ++en) {
             unsigned int ep = en;
 
             double xEnergy = 0;
             double xResolution = 0;
+            unsigned int dominantX;
+            double MaxEnergy = -numeric_limits<double>::max();
             for (unsigned int entry = 0; entry < Combinations[d][0][xc][en].size(); ++entry) { // Sum up energy on xstrips in the set of strips, en
+              double tempEnergy = StripHits[d][0][Combinations[d][0][xc][en][entry]]->GetEnergy();
+              if (tempEnergy > MaxEnergy){
+                dominantX = entry;
+                MaxEnergy = tempEnergy;
+              }
               xEnergy += StripHits[d][0][Combinations[d][0][xc][en][entry]]->GetEnergy();
               xResolution += pow(StripHits[d][0][Combinations[d][0][xc][en][entry]]->GetEnergyResolution(), 2);
             }
 
             double yEnergy = 0;
             double yResolution = 0;
+            unsigned int dominantY;
+            MaxEnergy = -numeric_limits<double>::max();
             for (unsigned int entry = 0; entry < Combinations[d][1][yc][ep].size(); ++entry) { // Sum up energy on ystrips in the set of strips, ep
-              yEnergy += StripHits[d][1][Combinations[d][1][yc][ep][entry]]->GetEnergy();
+              double tempEnergy = StripHits[d][1][Combinations[d][1][yc][ep][entry]]->GetEnergy();
+              if (tempEnergy > MaxEnergy){
+                dominantY = entry;
+                MaxEnergy = tempEnergy;
+              }
+              yEnergy += tempEnergy;
               yResolution += pow(StripHits[d][1][Combinations[d][1][yc][ep][entry]]->GetEnergyResolution(), 2);
             }
+
+            double HVtau = StripHits[d][0][Combinations[d][0][xc][en][dominantX]]->GetTiming();
+            double LVtau = StripHits[d][1][Combinations[d][1][yc][ep][dominantY]]->GetTiming();
+            HVtauList.push_back(HVtau);
+            LVtauList.push_back(-LVtau);
+            HVtauMean += HVtau;
+            LVtauMean += LVtau;
+
+            // !!! TODO: Fix timing resolution. Maybe put GetTimingResolution into MStripHit
+            double HVtauResolution = 3*60/StripHits[d][0][Combinations[d][0][xc][en][dominantX]]->GetEnergy();
+            double LVtauResolution = 3*60/StripHits[d][1][Combinations[d][1][yc][ep][dominantY]]->GetEnergy();
+
+            HVtauResolutionList.push_back(HVtauResolution*HVtauResolution);
+            LVtauResolutionList.push_back(LVtauResolution*LVtauResolution);
+
+            HVtauMeanResolution += HVtauResolution*HVtauResolution;
+            LVtauMeanResolution += LVtauResolution*LVtauResolution;
+
             //cout << "yEnergy: " << yEnergy << endl;
             //cout << "  Sub - Test en=" << en << " (" << xEnergy << ") with ep="
             //     << ep << " (" << yEnergy << "):" << endl;
             //cout<<xResolution<<":"<<yResolution<<endl;
             ChiSquare += (xEnergy - yEnergy)*(xEnergy - yEnergy) / (xResolution + yResolution); // Chi-squared is determined by how close the energies on either side match
           }
+
+          HVtauMean /= MinSize;
+          LVtauMean /= MinSize;
+          HVtauMeanResolution /= MinSize*MinSize;
+          LVtauMeanResolution /= MinSize*MinSize;
+
+          vector<size_t> HVTauArgsort = Argsort(HVtauList);
+          vector<size_t> LVTauArgsort = Argsort(LVtauList);
+          bool TimesOrdered = true;
+          // for (unsigned int i=0; i<HVTauArgsort.size(); ++i) {
+          //   if (HVTauArgsort[i]!=LVTauArgsort[i]){
+          //     TimesOrdered = false;
+          //   }
+          // }
+
+          // Calculate the distance between measurements and properly order lists of drift times
+          double HVTimeOrderDistance = 0;
+          double LVTimeOrderDistance = 0;
+          for (unsigned int i=0; i<HVTauArgsort.size(); ++i) {
+            if (HVTauArgsort[i]!=LVTauArgsort[i]){
+              HVTimeOrderDistance += (HVtauList[HVTauArgsort[i]] - HVtauList[LVTauArgsort[i]])*(HVtauList[HVTauArgsort[i]] - HVtauList[LVTauArgsort[i]])/(HVtauResolutionList[HVTauArgsort[i]] + HVtauResolutionList[LVTauArgsort[i]]);
+              LVTimeOrderDistance += (LVtauList[HVTauArgsort[i]] - LVtauList[LVTauArgsort[i]])*(LVtauList[HVTauArgsort[i]] - LVtauList[LVTauArgsort[i]])/(LVtauResolutionList[HVTauArgsort[i]] + LVtauResolutionList[LVTauArgsort[i]]);
+            }
+          }
+
+          if ((HVTimeOrderDistance < LVTimeOrderDistance) && (HVTimeOrderDistance > 50)) {
+            TimesOrdered = false;
+          }
+          else if ((LVTimeOrderDistance < HVTimeOrderDistance) && (LVTimeOrderDistance > 50)) {
+            TimesOrdered = false;
+          }
+
+          // !!! TODO: Do we need to take into account difference in hole and electron drift times?
+          // for( unsigned int h=0; h < HVtauList.size(); ++h ){
+          //   ChiSquare += ((HVtauList[h] - HVtauMean) + (LVtauList[h] - LVtauMean)) * ((HVtauList[h] - HVtauMean) + (LVtauList[h] - LVtauMean))/(HVtauMeanResolution + LVtauMeanResolution + HVtauResolutionList[h] + LVtauResolutionList[h]);
+          // }
+
           ChiSquare /= MinSize; // Chi-squared is normalized by the number of sets of strips in the smaller of the two combos xc and yc
           //cout<<"Chi square: "<<ChiSquare<<endl;
 
-          if (ChiSquare < BestChiSquare) {
+          if ((ChiSquare < BestChiSquare) && (TimesOrdered==true)) {
             BestChiSquare = ChiSquare;
             BestXSideCombo = Combinations[d][0][xc];
             BestYSideCombo = Combinations[d][1][yc];
@@ -585,6 +663,27 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
   Event->SetAnalysisProgress(MAssembly::c_StripPairing);
 
   return true;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+vector<size_t> MModuleStripPairingChiSquare::Argsort(vector<double> &list)
+{
+  // Return the order of indices resulting from list sorting
+  // initialize original index locations
+  vector<size_t> idx(list.size());
+  iota(idx.begin(), idx.end(), 0);
+
+  // sort indexes based on comparing values in v
+  // using std::stable_sort instead of std::sort
+  // to avoid unnecessary index re-orderings
+  // when v contains elements of equal values 
+  stable_sort(idx.begin(), idx.end(),
+       [&list](size_t i1, size_t i2) {return list[i1] < list[i2];});
+
+  return idx;
 }
 
 
