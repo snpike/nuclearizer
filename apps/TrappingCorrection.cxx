@@ -64,6 +64,13 @@ using namespace ROOT::Minuit2;
 #include "MAssembly.h"
 
 
+int g_HistBins = 75;
+double g_MinCTD = -200;
+double g_MaxCTD = 200;
+double g_MinRatio = 0.94;
+double g_MaxRatio = 1.06;
+
+
 ////////////////////////////////////////////////////////////////////////////////
 
 
@@ -74,21 +81,45 @@ public:
 	double operator()(vector<double> const &v) const override;
 	double Up() const override { return 1; }
 
-	void AddCTD(double CTD){ m_CTDs.push_back(CTD); }
-	void AddHVEnergy(double HVEnergy){ m_HVEnergies.push_back(HVEnergy); }
-	void AddLVEnergy(double LVEnergy){ m_LVEnergies.push_back(LVEnergy); }
+	void AddCTD(double CTD){ m_CTD.push_back(CTD); }
+	void AddHVEnergy(double HVEnergy, double HVEnergyResolution){ m_HVEnergy.push_back(HVEnergy); m_HVEnergyResolution.push_back(HVEnergyResolution); }
+	void AddLVEnergy(double LVEnergy, double LVEnergyResolution){ m_LVEnergy.push_back(LVEnergy); m_LVEnergyResolution.push_back(LVEnergyResolution); }
 
-private:
+	vector<double> GetCTD(){ return m_CTD; }
+	vector<double> GetHVEnergy(){ return m_HVEnergy; }
+	vector<double> GetLVEnergy(){ return m_LVEnergy; }
+	vector<double> GetHVEnergyResolution(){ return m_HVEnergyResolution; }
+	vector<double> GetLVEnergyResolution(){ return m_LVEnergyResolution; }
+
+	void SetCTD(vector<double> CTD){ m_CTD = CTD; }
+	void SetHVEnergy(vector<double> HVEnergy, vector<double> HVEnergyResolution){ m_HVEnergy = HVEnergy; m_HVEnergyResolution = HVEnergyResolution; }
+	void SetLVEnergy(vector<double> LVEnergy, vector<double> LVEnergyResolution){ m_LVEnergy = LVEnergy; m_LVEnergyResolution = LVEnergyResolution; }
 
 	//! The measured CTD and HV/LV energies
-	vector<double> m_CTDs;
-	vector<double> m_HVEnergies;
-	vector<double> m_LVEnergies;
+	vector<double> m_CTD;
+	vector<double> m_HVEnergy;
+	vector<double> m_LVEnergy;
+	vector<double> m_HVEnergyResolution;
+	vector<double> m_LVEnergyResolution;
 
 };
 
 
 ////////////////////////////////////////////////////////////////////////////////
+
+
+class ChiSquaredFCN : public SymmetryFCN
+{
+public:
+	//! Operator which returns the symmetry of m_CTDHistogram given the parameters passed
+	double operator()(vector<double> const &v) const override;
+	double Up() const override { return 1; }
+
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+
 
 
 //! A standalone program based on MEGAlib and ROOT
@@ -131,6 +162,9 @@ private:
 	bool m_GreedyPairing;
 	bool m_CardCageOverride;
 
+	double m_MinEnergy;
+	double m_MaxEnergy;
+
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -144,26 +178,31 @@ double SymmetryFCN::operator()(vector<double> const &v) const
 	double LVIntercept = v[3];
 
 	char name[64]; sprintf(name,"name");
-	TH2D* CorrectedHistogram = new TH2D(name, name, 51, -250, 250, 51, 0.95, 1.05);
+	int HistBins = g_HistBins;
+	if (HistBins%2 == 0) {
+		HistBins += 1;
+	}
+	TH2D CorrectedHistogram(name, name, HistBins, g_MinCTD, g_MaxCTD, HistBins, g_MinRatio, g_MaxRatio);
 
-	for (unsigned int i = 0; i < m_CTDs.size(); ++i) {
+	for (unsigned int i = 0; i < m_CTD.size(); ++i) {
+		double CTDHVShift = m_CTD[i] + g_MaxCTD;
+		double CTDLVShift = m_CTD[i] + g_MinCTD;
 		// Correct the HV and LV energies by dividing by the CCE. DeltaCCE is defined as a linear function with units percentage energy lost.
-		double CorrectedHVEnergy = m_HVEnergies[i]/(1 - (HVSlope*m_CTDs[i] + HVIntercept)/100);
-		double CorrectedLVEnergy = m_LVEnergies[i]/(1 - (LVSlope*m_CTDs[i] + LVIntercept)/100);
-		CorrectedHistogram->Fill(m_CTDs[i], CorrectedHVEnergy/CorrectedLVEnergy);
-		// m_CorrectedHistogramReflected->Fill(-m_CTDs[i], CorrectedHVEnergy/CorrectedLVEnergy)
+		double CorrectedHVEnergy = m_HVEnergy[i]/(1 - (HVSlope*CTDHVShift + HVIntercept)/100);
+		double CorrectedLVEnergy = m_LVEnergy[i]/(1 - (LVSlope*CTDLVShift + LVIntercept)/100);
+		CorrectedHistogram.Fill(m_CTD[i], CorrectedHVEnergy/CorrectedLVEnergy);
 	}
 
 	vector<vector<double>> BinValues;
 	vector<vector<double>> ReflectedBinValues;
 	double Symmetry = 0;
 
-	for (unsigned int y = 0; y < CorrectedHistogram->GetNbinsY(); ++y) {
+	for (unsigned int y = 0; y < CorrectedHistogram.GetNbinsY(); ++y) {
 		
 		vector<double> XValues;
 
-		for (unsigned int x = 0; x < CorrectedHistogram->GetNbinsX(); ++x) {
-			XValues.push_back(CorrectedHistogram->GetBinContent(x,y));
+		for (unsigned int x = 0; x < CorrectedHistogram.GetNbinsX(); ++x) {
+			XValues.push_back(CorrectedHistogram.GetBinContent(x,y));
 		}
 
 		// BinValues.push_back(XValues);
@@ -171,19 +210,43 @@ double SymmetryFCN::operator()(vector<double> const &v) const
 		reverse(ReflectedXValues.begin(), ReflectedXValues.end());
 
 		for (unsigned int x = 0; x < XValues.size(); ++x) {
-			Symmetry += XValues[x] * ReflectedXValues[x];
+			Symmetry += pow(XValues[x] - ReflectedXValues[x], 2)/(XValues[x] + ReflectedXValues[x]);
 		}
 		// ReflectedBinValues.push_back(ReflectedXValues);
 	}
 
-	Symmetry /= 2;
-
-	return -2*log(Symmetry);
+	return Symmetry;
 
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
+
+
+double ChiSquaredFCN::operator()(vector<double> const &v) const
+{
+	double HVSlope = v[0];
+	double HVIntercept = v[1];
+	double LVSlope = v[2];
+	double LVIntercept = v[3];
+
+	double ChiSquare = 0;
+
+	for (unsigned int i = 0; i < m_CTD.size(); ++i) {
+		double CTDHVShift = m_CTD[i] + g_MaxCTD;
+		double CTDLVShift = m_CTD[i] + g_MinCTD;
+		// Correct the HV and LV energies by dividing by the CCE. DeltaCCE is defined as a linear function with units percentage energy lost.
+		double CorrectedHVEnergy = m_HVEnergy[i]/(1 - (HVSlope*CTDHVShift + HVIntercept)/100);
+		double CorrectedLVEnergy = m_LVEnergy[i]/(1 - (LVSlope*CTDLVShift + LVIntercept)/100);
+
+		ChiSquare += pow(CorrectedHVEnergy - CorrectedLVEnergy, 2)/(m_HVEnergyResolution[i] + m_LVEnergyResolution[i]);
+	}
+
+	// ChiSquare /= m_CTD.size();
+
+	return ChiSquare;
+
+}
 
 
 //! Default constructor
@@ -214,7 +277,8 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
   Usage<<"  Usage: TrappingCorrection <options>"<<endl;
   Usage<<"    General options:"<<endl;
   Usage<<"         -i:   input file name (.roa)"<<endl;
-  Usage<<"         -e:   energy calibration file (.ecal)"<<endl;
+  Usage<<"         --emin:   minimum Event energy"<<endl;
+  Usage<<"         --emax:   maximum Event energy"<<endl;
   Usage<<"         -t:   TAC calibration file"<<endl;
 	Usage<<"         -p:   do pixel-by-pixel correction"<<endl;
 	Usage<<"         -g:   greedy strip pairing (default is chi-square)"<<endl;
@@ -236,6 +300,8 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
 
 	m_PixelCorrect = false;
 	m_GreedyPairing = false;
+	m_MinEnergy = 0;
+	m_MaxEnergy = 5000;
 
   // Now parse the command line options:
   for (int i = 1; i < argc; i++) {
@@ -243,7 +309,7 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
 
     // First check if each option has sufficient arguments:
     // Single argument
-    if (Option == "-i" || Option == "-e" || Option == "-t" || Option == "-o") {
+    if (Option == "-i" || Option == "-e" || Option == "-t" || Option == "-o" || Option == "--emin" || Option == "--emax") {
       if (!((argc > i+1) && 
             (argv[i+1][0] != '-' || isalpha(argv[i+1][1]) == 0))){
         cout<<"Error: Option "<<argv[i][1]<<" needs a second argument!"<<endl;
@@ -273,6 +339,14 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
     if (Option == "-e") {
       m_EcalFile = argv[++i];
       cout<<"Accepting file name: "<<m_EcalFile<<endl;
+    } 
+
+    if (Option == "--emin") {
+      m_MinEnergy = stod(argv[++i]);
+    } 
+
+    if (Option == "--emax") {
+      m_MaxEnergy = stod(argv[++i]);
     } 
 
     if (Option == "-t") {
@@ -355,6 +429,8 @@ bool TrappingCorrection::Analyze()
   EventFilter->SetMaximumLVStrips(1);
   EventFilter->SetMinimumHVStrips(1);
   EventFilter->SetMaximumHVStrips(1);
+  EventFilter->SetMinimumTotalEnergy(m_MinEnergy);
+  EventFilter->SetMaximumTotalEnergy(m_MaxEnergy);
   S->SetModule(EventFilter, 3);
   
   cout<<"Creating strip pairing"<<endl;
@@ -401,6 +477,8 @@ bool TrappingCorrection::Analyze()
 				for (unsigned int h = 0; h < Event->GetNHits(); ++h) {
 					double HVEnergy = 0.0;
 					double LVEnergy = 0.0;
+					double HVEnergyResolution = 0.0;
+					double LVEnergyResolution = 0.0;
 					vector<MStripHit*> HVStrips;
 		      vector<MStripHit*> LVStrips;
 
@@ -411,8 +489,10 @@ bool TrappingCorrection::Analyze()
 		      SymmetryFCN* FCN = FCNs[DetID]; 
 					
 					if (Hist == nullptr) {
-						char name[64]; sprintf(name,"%d",DetID);
-						Hist = new TH2D(name, name, 51, -250, 250, 51, 0.95, 1.05);
+						char name[64]; sprintf(name,"Detector %d (Uncorrected)",DetID);
+						Hist = new TH2D(name, name, g_HistBins, g_MinCTD, g_MaxCTD, g_HistBins, g_MinRatio, g_MaxRatio);
+						Hist->SetXTitle("CTD (ns)");
+						Hist->SetYTitle("HV/LV Energy Ratio");
 						Histograms[DetID] = Hist;
 					}
 
@@ -426,9 +506,11 @@ bool TrappingCorrection::Analyze()
 
 						if (SH->IsLowVoltageStrip()==true) {
 							LVEnergy += SH->GetEnergy();
+							LVEnergyResolution += (SH->GetEnergyResolution())*(SH->GetEnergyResolution());
 							LVStrips.push_back(SH);
 						} else {
 							HVEnergy += SH->GetEnergy();
+							HVEnergyResolution += (SH->GetEnergyResolution())*(SH->GetEnergyResolution());
 							HVStrips.push_back(SH);
 		      	}
 		      }
@@ -438,11 +520,14 @@ bool TrappingCorrection::Analyze()
 		      MStripHit* HVSH = GetDominantStrip(HVStrips, HVEnergyFraction); 
 		      MStripHit* LVSH = GetDominantStrip(LVStrips, LVEnergyFraction); 
 					double EnergyFraction = HVEnergy/LVEnergy;
-					double CTD = HVSH->GetTiming() - LVSH->GetTiming();
+					double CTD = LVSH->GetTiming() - HVSH->GetTiming();
+					if (m_CardCageOverride == true) {
+						CTD *= -1;
+					}
 					Hist->Fill(CTD, EnergyFraction);
 					FCN->AddCTD(CTD);
-					FCN->AddHVEnergy(HVEnergy);
-					FCN->AddLVEnergy(LVEnergy);
+					FCN->AddHVEnergy(HVEnergy, HVEnergyResolution);
+					FCN->AddLVEnergy(LVEnergy, LVEnergyResolution);
 				}
 			}
 		}
@@ -462,7 +547,7 @@ bool TrappingCorrection::Analyze()
 		H.second->Draw("colz");
 
 		int det = H.first;
-		TFile f(m_OutFile+MString("_Det")+det+MString("_Hist.root"),"new");
+		TFile f(m_OutFile+MString("_Det")+det+MString("_Hist_Uncorr.root"),"new");
 		H.second->Write();
 		f.Close();
 
@@ -470,17 +555,87 @@ bool TrappingCorrection::Analyze()
 
 	for (auto F: FCNs) {
 
-		MnUserParameters* InitialState = new MnUserParameters();
-		InitialState->Add("HVSlope", -1e-3, 1e-4, -10, 0);
-		InitialState->Add("HVIntercept", 0.5, 0.1, -10, 10);
-		InitialState->Add("LVSlope", 1e-3, 1e-4, 0, 10);
-		InitialState->Add("LVIntercept", 0.5, 0.1, -10, 10);
+		int DetID = F.first;
+		MnUserParameters* InitialStateSym = new MnUserParameters();
+		InitialStateSym->Add("HVSlope", 1e-3, 1e-4, 0, 3e-1);
+		InitialStateSym->Add("HVIntercept", 0, 0.01, -2, 2);
+		InitialStateSym->Add("LVSlope", 0, 1e-4, -3e-2, 0);
+		InitialStateSym->Add("LVIntercept", 0, 0.01, -2, 2);
 
-		MnMigrad migrad(*F.second, *InitialState);
+		InitialStateSym->Fix("LVSlope");
+		InitialStateSym->Fix("LVIntercept");
+		InitialStateSym->Fix("HVIntercept");
+
+
+		MnMigrad migradSym(*F.second, *InitialStateSym);
 		 // Minimize
-  	FunctionMinimum min = migrad();
+  	FunctionMinimum MinimumSym = migradSym();
+
+  	MnUserParameters ParametersSym = MinimumSym.UserParameters();
+  	// double HVSlope = ParametersSym.Value("HVSlope");
+  	// double HVIntercept = ParametersSym.Value("HVIntercept");
+  	// double LVSlope = ParametersSym.Value("LVSlope");
+  	// double LVIntercept = ParametersSym.Value("LVIntercept");
+
 	  // output
-	  cout<<min<<endl;
+	  cout<<MinimumSym<<endl;
+
+		MnUserParameters* InitialStateChi = new MnUserParameters();
+		InitialStateChi->Add("HVSlope", ParametersSym.Value("HVSlope"), ParametersSym.Error("HVSlope"));
+		InitialStateChi->Add("HVIntercept", 0, 0.01, -2, 2);
+		InitialStateChi->Add("LVSlope", 0, 1e-4, -3e-2, 0);
+		InitialStateChi->Add("LVIntercept", 0, 0.01, -2, 2);
+
+		InitialStateChi->Fix("LVSlope");
+		InitialStateChi->Fix("LVIntercept");
+		InitialStateChi->Fix("HVSlope");
+
+
+		ChiSquaredFCN* ChiSquaredF = new ChiSquaredFCN();
+		ChiSquaredF->SetCTD(F.second->GetCTD());
+		ChiSquaredF->SetHVEnergy(F.second->GetHVEnergy(), F.second->GetHVEnergyResolution());
+		ChiSquaredF->SetLVEnergy(F.second->GetLVEnergy(), F.second->GetLVEnergyResolution());
+		MnMigrad migradChi(*ChiSquaredF, *InitialStateChi);
+		 // Minimize
+  	FunctionMinimum MinimumChi = migradChi();
+
+  	MnUserParameters ParametersChi = MinimumChi.UserParameters();
+  	double HVSlope = ParametersChi.Value("HVSlope");
+  	double HVIntercept = ParametersChi.Value("HVIntercept");
+  	double LVSlope = ParametersChi.Value("LVSlope");
+  	double LVIntercept = ParametersChi.Value("LVIntercept");
+	  // output
+	  cout<<MinimumChi<<endl;
+
+		
+		char name[64]; sprintf(name,"Detector %d (Corrected)",DetID);
+		TH2D* Hist = new TH2D(name, name, g_HistBins, g_MinCTD, g_MaxCTD, g_HistBins, g_MinRatio, g_MaxRatio);
+		Hist->SetXTitle("CTD (ns)");
+		Hist->SetYTitle("HV/LV Energy Ratio");
+
+		vector<double> CTDList = F.second->GetCTD();
+		vector<double> HVEnergyList = F.second->GetHVEnergy();
+		vector<double> LVEnergyList = F.second->GetLVEnergy();
+		for (unsigned int i=0; i<CTDList.size(); ++i) {
+			
+			double CTDHVShift = CTDList[i] + g_MaxCTD;
+			double CTDLVShift = CTDList[i] + g_MinCTD;
+			// Correct the HV and LV energies by dividing by the CCE. DeltaCCE is defined as a linear function with units percentage energy lost.
+			double CorrectedHVEnergy = HVEnergyList[i]/(1 - (HVSlope*CTDHVShift + HVIntercept)/100);
+			double CorrectedLVEnergy = LVEnergyList[i]/(1 - (LVSlope*CTDLVShift + LVIntercept)/100);
+			
+			Hist->Fill(CTDList[i], CorrectedHVEnergy/CorrectedLVEnergy);
+		}
+
+		TCanvas* C = new TCanvas();
+		C->SetLogz();
+		C->cd();
+		Hist->Draw("colz");
+
+		TFile f(m_OutFile+MString("_Det")+DetID+MString("_Hist_Corr.root"),"new");
+		Hist->Write();
+		f.Close();
+
 	}
 
 	watch.Stop();
