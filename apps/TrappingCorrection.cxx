@@ -195,7 +195,7 @@ double SymmetryFCN::operator()(vector<double> const &v) const
 
 	vector<vector<double>> BinValues;
 	vector<vector<double>> ReflectedBinValues;
-	double Symmetry = 0;
+	double Asymmetry = 0;
 
 	for (unsigned int y = 0; y < CorrectedHistogram.GetNbinsY(); ++y) {
 		
@@ -210,12 +210,11 @@ double SymmetryFCN::operator()(vector<double> const &v) const
 		reverse(ReflectedXValues.begin(), ReflectedXValues.end());
 
 		for (unsigned int x = 0; x < XValues.size(); ++x) {
-			Symmetry += pow(XValues[x] - ReflectedXValues[x], 2)/(XValues[x] + ReflectedXValues[x]);
+			Asymmetry += pow(XValues[x] - ReflectedXValues[x], 2)/(XValues[x] + ReflectedXValues[x]);
 		}
-		// ReflectedBinValues.push_back(ReflectedXValues);
 	}
 
-	return Symmetry;
+	return Asymmetry;
 
 }
 
