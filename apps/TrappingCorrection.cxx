@@ -539,7 +539,10 @@ bool TrappingCorrection::Analyze()
 	logFitStats<<"Det"<<'\t'<<"HV Slope"<<'\t'<<"HV Intercept"<<'\t'<<"LV Slope"<<'\t'<<"LV Intercept"<<endl<<endl;
 
 	for (auto H: Histograms) {
-//		if (H.first == 0){
+		
+		int DetID = H.first;
+		TFile f(m_OutFile+MString("_Det")+DetID+MString("_Hist_Uncorr.root"),"recreate");
+
 		TCanvas* C = new TCanvas();
 		C->SetLogz();
 		C->cd();
@@ -631,7 +634,7 @@ bool TrappingCorrection::Analyze()
 		C->cd();
 		Hist->Draw("colz");
 
-		TFile f(m_OutFile+MString("_Det")+DetID+MString("_Hist_Corr.root"),"new");
+		TFile f(m_OutFile+MString("_Det")+DetID+MString("_Hist_Corr.root"),"recreate");
 		Hist->Write();
 		f.Close();
 
