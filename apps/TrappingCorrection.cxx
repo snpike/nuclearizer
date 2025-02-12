@@ -24,6 +24,8 @@
 #include <map>
 #include <vector>
 #include <algorithm>
+#include <ctime>
+#include <cstdio>
 using namespace std;
 
 // ROOT
@@ -279,10 +281,10 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
   Usage<<"         --emin:   minimum Event energy"<<endl;
   Usage<<"         --emax:   maximum Event energy"<<endl;
   Usage<<"         -t:   TAC calibration file"<<endl;
-	Usage<<"         -p:   do pixel-by-pixel correction"<<endl;
-	Usage<<"         -g:   greedy strip pairing (default is chi-square)"<<endl;
-	Usage<<"         -c:   Card cage data (i.e. no TAC calibration required)"<<endl;
-	Usage<<"         -o:   outfile"<<endl;
+  Usage<<"         -p:   do pixel-by-pixel correction"<<endl;
+  Usage<<"         -g:   greedy strip pairing (default is chi-square)"<<endl;
+  Usage<<"         -c:   Card cage data (i.e. no TAC calibration required)"<<endl;
+  Usage<<"         -o:   outfile (default YYYYMMDDHHMMSS"<<endl;
   Usage<<"         -h:   print this help"<<endl;
   Usage<<endl;
 
@@ -297,10 +299,20 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
     }
   }
 
-	m_PixelCorrect = false;
-	m_GreedyPairing = false;
-	m_MinEnergy = 0;
-	m_MaxEnergy = 5000;
+  m_PixelCorrect = false;
+  m_GreedyPairing = false;
+  m_MinEnergy = 0;
+  m_MaxEnergy = 5000;
+  
+  time_t rawtime;
+  tm* timeinfo;
+  time(&rawtime);
+  timeinfo = gmtime(&rawtime);
+
+  char buffer [80];
+  strftime(buffer,80,"%Y%m%d%H%M%S",timeinfo);
+
+  m_OutFile = MString(buffer);
 
   // Now parse the command line options:
   for (int i = 1; i < argc; i++) {
