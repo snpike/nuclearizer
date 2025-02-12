@@ -534,9 +534,9 @@ bool TrappingCorrection::Analyze()
 	}
 
 	//setup output file
-	ofstream logFitStats;
-	logFitStats.open("TrappingCorrection.log");
-	logFitStats<<"Det"<<'\t'<<"HV Slope"<<'\t'<<"HV Intercept"<<'\t'<<"LV Slope"<<'\t'<<"LV Intercept"<<endl<<endl;
+	ofstream OutputCalFile;
+	OutputCalFile.open(m_OutFile+MString("_parameters.txt"));
+	OutputCalFile<<"Det"<<'\t'<<"HV Slope"<<'\t'<<"HV Intercept"<<'\t'<<"LV Slope"<<'\t'<<"LV Intercept"<<endl<<endl;
 
 	for (auto H: Histograms) {
 		
@@ -548,8 +548,6 @@ bool TrappingCorrection::Analyze()
 		C->cd();
 		H.second->Draw("colz");
 
-		int det = H.first;
-		TFile f(m_OutFile+MString("_Det")+det+MString("_Hist_Uncorr.root"),"new");
 		H.second->Write();
 		f.Close();
 
@@ -609,7 +607,6 @@ bool TrappingCorrection::Analyze()
 	  // output
 	  cout<<MinimumChi<<endl;
 
-		
 		char name[64]; sprintf(name,"Detector %d (Corrected)",DetID);
 		TH2D* Hist = new TH2D(name, name, g_HistBins, g_MinCTD, g_MaxCTD, g_HistBins, g_MinRatio, g_MaxRatio);
 		Hist->SetXTitle("CTD (ns)");
@@ -638,7 +635,10 @@ bool TrappingCorrection::Analyze()
 		Hist->Write();
 		f.Close();
 
+		OutputCalFile<<to_string(DetID)<<'\t'<<to_string(HVSlope)<<'\t'<<to_string(HVIntercept)<<'\t'<<to_string(LVSlope)<<'\t'<<to_string(LVIntercept)<<endl<<endl;
+
 	}
+	OutputCalFile.close();
 
 	watch.Stop();
 	cout<<"total time (s): "<<watch.CpuTime()<<endl;
