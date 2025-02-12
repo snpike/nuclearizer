@@ -417,32 +417,44 @@ bool TrappingCorrection::Analyze()
 
   MSupervisor* S = MSupervisor::GetSupervisor();
   
-  cout<<"Creating ROA loader"<<endl;
-  MModuleLoaderMeasurementsROA* Loader = new MModuleLoaderMeasurementsROA();
-  Loader->SetFileName(m_FileName);
-  S->SetModule(Loader, 0);
+	MModuleLoaderMeasurementsROA* Loader;
+	MModuleTACcut* TACCalibrator;
+	MModuleEnergyCalibrationUniversal* EnergyCalibrator;
+	MModuleEventFilter* EventFilter;
 
-  cout<<"Creating TAC calibrator"<<endl;
-  MModuleTACcut* TACCalibrator = new MModuleTACcut();
-  TACCalibrator->SetTACCalFileName(m_TACFile);
-  S->SetModule(TACCalibrator, 1);
+  unsigned int MNumber = 0;
+  cout<<"Creating ROA loader"<<endl;
+  Loader = new MModuleLoaderMeasurementsROA();
+  Loader->SetFileName(m_FileName);
+  S->SetModule(Loader, MNumber);
+  ++MNumber;
+
+  if (m_CardCageOverride==false) {
+	  cout<<"Creating TAC calibrator"<<endl;
+	  TACCalibrator = new MModuleTACcut();
+	  TACCalibrator->SetTACCalFileName(m_TACFile);
+	  S->SetModule(TACCalibrator, MNumber);
+	  ++MNumber;
+  }
  
-   cout<<"Creating energy calibrator"<<endl;
-  MModuleEnergyCalibrationUniversal* EnergyCalibrator = new MModuleEnergyCalibrationUniversal();
+  cout<<"Creating energy calibrator"<<endl;
+  EnergyCalibrator = new MModuleEnergyCalibrationUniversal();
   EnergyCalibrator->SetFileName(m_EcalFile);
   EnergyCalibrator->EnablePreampTempCorrection(false);
-  S->SetModule(EnergyCalibrator, 2);
+  S->SetModule(EnergyCalibrator, MNumber);
+  ++MNumber;
 
   cout<<"Creating Event filter"<<endl;
   //! Only use events with 1 Strip Hit on each side to avoid strip pairing complications
-  MModuleEventFilter* EventFilter = new MModuleEventFilter();
+  EventFilter = new MModuleEventFilter();
   EventFilter->SetMinimumLVStrips(1);
   EventFilter->SetMaximumLVStrips(1);
   EventFilter->SetMinimumHVStrips(1);
   EventFilter->SetMaximumHVStrips(1);
   EventFilter->SetMinimumTotalEnergy(m_MinEnergy);
   EventFilter->SetMaximumTotalEnergy(m_MaxEnergy);
-  S->SetModule(EventFilter, 3);
+  S->SetModule(EventFilter, MNumber);
+  ++MNumber;
   
   cout<<"Creating strip pairing"<<endl;
   MModule* Pairing;
@@ -454,12 +466,14 @@ bool TrappingCorrection::Analyze()
     // Pairing = dynamic_cast<MModuleStripPairingChiSquare*>(Pairing);
     Pairing = new MModuleStripPairingChiSquare();
   }
-  S->SetModule(Pairing, 4);
+  S->SetModule(Pairing, MNumber);
 
   cout<<"Initializing Loader"<<endl;
   if (Loader->Initialize() == false) return false;
-  cout<<"Initializing TAC calibrator"<<endl;
-  if (TACCalibrator->Initialize() == false) return false;
+  if (m_CardCageOverride==false) {
+  	cout<<"Initializing TAC calibrator"<<endl;
+  	if (TACCalibrator->Initialize() == false) return false;
+  }
   cout<<"Initializing Energy calibrator"<<endl;
   if (EnergyCalibrator->Initialize() == false) return false;
   cout<<"Initializing Event filter"<<endl;
@@ -479,7 +493,11 @@ bool TrappingCorrection::Analyze()
 
     if (Loader->IsReady() ){
       Loader->AnalyzeEvent(Event);
-      TACCalibrator->AnalyzeEvent(Event);
+
+      if (m_CardCageOverride==false) {
+      	TACCalibrator->AnalyzeEvent(Event);
+      }
+
       EnergyCalibrator->AnalyzeEvent(Event);
       bool Unfiltered = EventFilter->AnalyzeEvent(Event);
       Pairing->AnalyzeEvent(Event);
