@@ -74,8 +74,8 @@ MModuleTACcut::MModuleTACcut() : MModule()
 
 
   // Set all modules, which can follow this module
-
-  AddSucceedingModuleType(MAssembly::c_EnergyCalibration);
+  AddSucceedingModuleType(MAssembly::c_StripPairing);
+  AddSucceedingModuleType(MAssembly::c_DepthCorrection);
 
   // Set if this module has an options GUI
   // Overwrite ShowOptionsGUI() with the call to the GUI!
@@ -110,19 +110,6 @@ MModuleTACcut::~MModuleTACcut()
 bool MModuleTACcut::Initialize()
 {
   // Initialize the module 
-
-  vector<MDDetector*> detectors = m_Geometry->GetDetectorList();
-
-  for(unsigned int i = 0; i < detectors.size(); ++i){
-    // For now, DetID is in order of detectors, which puts contraints on how the geometry file should be written.
-    unsigned int DetID = i;
-    MDDetector* det = detectors[i];
-    if (det->GetNNamedDetectors() > 0){
-      MString det_name = det->GetNamedDetectorName(0);
-      cout << "Found detector " << det_name << " corresponding to DetID=" << DetID << "." << endl;
-      m_DetectorIDs.push_back(DetID);
-    }
-  }
 
   if( LoadTACCalFile(m_TACCalFile) == false ){
     cout << "TAC Calibration file could not be loaded." << endl;
@@ -181,7 +168,7 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
     int DetID = SH->GetDetectorID();
     int StripID = SH->GetStripID();
     if ( SH->IsLowVoltageStrip() == true ){
-      ns_timing = TAC_timing*m_LVTACCal[DetID][StripID][0] + m_LVTACCal[DetID][StripID][1];
+      ns_timing = (TAC_timing*m_LVTACCal[DetID][StripID][0] + m_LVTACCal[DetID][StripID][1]);
     }
     else{
       ns_timing = TAC_timing*m_HVTACCal[DetID][StripID][0] + m_HVTACCal[DetID][StripID][1];
@@ -256,16 +243,10 @@ bool MModuleTACcut::LoadTACCalFile(MString FName)
   // Read in the TAC Calibration file, which should contain for each strip:
   //  DetID, h or l for high or low voltage, TAC cal, TAC cal error, TAC cal offset, TAC offset error
   MFile F;
-  if( F.Open(FName) == false ){
+  if (F.Open(FName) == false) {
     cout << "MModuleTACcut: failed to open TAC Calibration file." << endl;
     return false;
   } else {
-    for(unsigned int i = 0; i < m_DetectorIDs.size(); ++i){
-      unordered_map<int, vector<double>> temp_map_HV;
-      m_HVTACCal[i] = temp_map_HV;
-      unordered_map<int, vector<double>> temp_map_LV;
-      m_LVTACCal[i] = temp_map_LV;
-    }
     MString Line;
     while( F.ReadLine( Line ) ){
       if( !Line.BeginsWith("#") ){
@@ -279,6 +260,15 @@ bool MModuleTACcut::LoadTACCalFile(MString FName)
           double offset_err = Tokens[6].ToDouble();
           vector<double> cal_vals;
           cal_vals.push_back(taccal); cal_vals.push_back(offset); cal_vals.push_back(taccal_err); cal_vals.push_back(offset_err);
+          
+          if (find(m_DetectorIDs.begin(), m_DetectorIDs.end(), DetID) == m_DetectorIDs.end()) {
+            unordered_map<int, vector<double>> temp_map_HV;
+            m_HVTACCal[DetID] = temp_map_HV;
+            unordered_map<int, vector<double>> temp_map_LV;
+            m_LVTACCal[DetID] = temp_map_LV;
+            m_DetectorIDs.push_back(DetID);
+          }
+          
           if ( Tokens[1] == "l" ){
             m_LVTACCal[DetID][StripID] = cal_vals;
           }
@@ -289,6 +279,7 @@ bool MModuleTACcut::LoadTACCalFile(MString FName)
       }
     }
     F.Close();
+    sort(m_DetectorIDs.begin(), m_DetectorIDs.end());
   }
 
   return true;
