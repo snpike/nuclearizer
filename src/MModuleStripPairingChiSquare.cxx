@@ -419,12 +419,69 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
               yEnergy += StripHits[d][1][Combinations[d][1][yc][ep][entry]]->GetEnergy();
               yResolution += pow(StripHits[d][1][Combinations[d][1][yc][ep][entry]]->GetEnergyResolution(), 2);
             }
+
+            double LVtau = StripHits[d][0][Combinations[d][0][xc][en][dominantX]]->GetTiming();
+            double HVtau = StripHits[d][1][Combinations[d][1][yc][ep][dominantY]]->GetTiming();
+            double CTDHVShift = LVtau - HVtau + 200;
+            yEnergy /= 1 - (0.005687*CTDHVShift - 1.164)/100;
+            HVtauList.push_back(HVtau);
+            LVtauList.push_back(-LVtau);
+            HVtauMean += HVtau;
+            LVtauMean += LVtau;
+
+            // !!! TODO: Fix timing resolution. Maybe put GetTimingResolution into MStripHit
+            double LVtauResolution = 3*60/StripHits[d][0][Combinations[d][0][xc][en][dominantX]]->GetEnergy();
+            double HVtauResolution = 3*60/StripHits[d][1][Combinations[d][1][yc][ep][dominantY]]->GetEnergy();
+
+            HVtauResolutionList.push_back(HVtauResolution*HVtauResolution);
+            LVtauResolutionList.push_back(LVtauResolution*LVtauResolution);
+
+            HVtauMeanResolution += HVtauResolution*HVtauResolution;
+            LVtauMeanResolution += LVtauResolution*LVtauResolution;
+
             //cout << "yEnergy: " << yEnergy << endl;
             //cout << "  Sub - Test en=" << en << " (" << xEnergy << ") with ep="
             //     << ep << " (" << yEnergy << "):" << endl;
             //cout<<xResolution<<":"<<yResolution<<endl;
             ChiSquare += (xEnergy - yEnergy)*(xEnergy - yEnergy) / (xResolution + yResolution); // Chi-squared is determined by how close the energies on either side match
           }
+
+          HVtauMean /= MinSize;
+          LVtauMean /= MinSize;
+          HVtauMeanResolution /= MinSize*MinSize;
+          LVtauMeanResolution /= MinSize*MinSize;
+
+          vector<size_t> HVTauArgsort = Argsort(HVtauList);
+          vector<size_t> LVTauArgsort = Argsort(LVtauList);
+          bool TimesOrdered = true;
+          // for (unsigned int i=0; i<HVTauArgsort.size(); ++i) {
+          //   if (HVTauArgsort[i]!=LVTauArgsort[i]){
+          //     TimesOrdered = false;
+          //   }
+          // }
+
+          // Calculate the distance between measurements and properly order lists of drift times
+          double HVTimeOrderDistance = 0;
+          double LVTimeOrderDistance = 0;
+          for (unsigned int i=0; i<HVTauArgsort.size(); ++i) {
+            if (HVTauArgsort[i]!=LVTauArgsort[i]){
+              HVTimeOrderDistance += (HVtauList[HVTauArgsort[i]] - HVtauList[LVTauArgsort[i]])*(HVtauList[HVTauArgsort[i]] - HVtauList[LVTauArgsort[i]])/(HVtauResolutionList[HVTauArgsort[i]] + HVtauResolutionList[LVTauArgsort[i]]);
+              LVTimeOrderDistance += (LVtauList[HVTauArgsort[i]] - LVtauList[LVTauArgsort[i]])*(LVtauList[HVTauArgsort[i]] - LVtauList[LVTauArgsort[i]])/(LVtauResolutionList[HVTauArgsort[i]] + LVtauResolutionList[LVTauArgsort[i]]);
+            }
+          }
+
+          // if ((HVTimeOrderDistance < LVTimeOrderDistance) && (HVTimeOrderDistance > 50)) {
+          //   TimesOrdered = false;
+          // }
+          // else if ((LVTimeOrderDistance < HVTimeOrderDistance) && (LVTimeOrderDistance > 50)) {
+          //   TimesOrdered = false;
+          // }
+
+          // !!! TODO: Do we need to take into account difference in hole and electron drift times?
+          // for( unsigned int h=0; h < HVtauList.size(); ++h ){
+          //   ChiSquare += ((HVtauList[h] - HVtauMean) + (LVtauList[h] - LVtauMean)) * ((HVtauList[h] - HVtauMean) + (LVtauList[h] - LVtauMean))/(HVtauMeanResolution + LVtauMeanResolution + HVtauResolutionList[h] + LVtauResolutionList[h]);
+          // }
+
           ChiSquare /= MinSize; // Chi-squared is normalized by the number of sets of strips in the smaller of the two combos xc and yc
           //cout<<"Chi square: "<<ChiSquare<<endl;
 
