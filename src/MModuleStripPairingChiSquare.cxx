@@ -446,7 +446,6 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
             double LVtau = StripHits[d][0][Combinations[d][0][xc][en][dominantX]]->GetTiming();
             double HVtau = StripHits[d][1][Combinations[d][1][yc][ep][dominantY]]->GetTiming();
             double CTDHVShift = LVtau - HVtau + 200;
-            yEnergy /= 1 - (0.005687*CTDHVShift - 1.164)/100;
             HVtauList.push_back(HVtau);
             LVtauList.push_back(-LVtau);
             HVtauMean += HVtau;
@@ -477,11 +476,11 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
           vector<size_t> HVTauArgsort = Argsort(HVtauList);
           vector<size_t> LVTauArgsort = Argsort(LVtauList);
           bool TimesOrdered = true;
-          // for (unsigned int i=0; i<HVTauArgsort.size(); ++i) {
-          //   if (HVTauArgsort[i]!=LVTauArgsort[i]){
-          //     TimesOrdered = false;
-          //   }
-          // }
+          for (unsigned int i=0; i<HVTauArgsort.size(); ++i) {
+            if (HVTauArgsort[i]!=LVTauArgsort[i]){
+              TimesOrdered = false;
+            }
+          }
 
           // Calculate the distance between measurements and properly order lists of drift times
           double HVTimeOrderDistance = 0;
@@ -508,7 +507,7 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
           ChiSquare /= MinSize; // Chi-squared is normalized by the number of sets of strips in the smaller of the two combos xc and yc
           //cout<<"Chi square: "<<ChiSquare<<endl;
 
-          if (ChiSquare < BestChiSquare) {
+          if (ChiSquare < BestChiSquare && TimesOrdered ==true) {
             BestChiSquare = ChiSquare;
             BestXSideCombo = Combinations[d][0][xc];
             BestYSideCombo = Combinations[d][1][yc];
