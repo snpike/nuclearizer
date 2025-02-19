@@ -23,6 +23,7 @@
 #include<algorithm>
 #include<map>
 #include<limits>
+#include <numeric>
 
 // ROOT libs:
 
@@ -76,6 +77,9 @@ class MModuleStripPairingChiSquare : public MModule
  protected:
   // Find a new set of combinations giving the existing gone
   vector<vector<vector<unsigned int>>> FindNewCombinations(vector<vector<vector<unsigned int>>> OldOnes, vector<MStripHit*> StripHits);
+
+  //! Return the order of indices resulting from sorting a vector
+  vector<size_t> Argsort(vector<double> &list);
 
   // private methods:
  private:

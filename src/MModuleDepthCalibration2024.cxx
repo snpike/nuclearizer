@@ -93,6 +93,8 @@ MModuleDepthCalibration2024::MModuleDepthCalibration2024() : MModule()
   m_ErrorSH = 0;
   m_ErrorNullSH=0;
   m_ErrorNoE=0;
+
+  m_CoeffsEnergy = 0;
 }
 
 
@@ -223,23 +225,19 @@ bool MModuleDepthCalibration2024::AnalyzeEvent(MReadOutAssembly* Event)
       }
     }
 
-    // GRADE=5 is some complicated geometry with multiple hits on a single strip. 
-    // GRADE=4 means there are more than 2 strip hits on one or both sides.
-    else if( Grade > 3 ){
+    // GRADE=5 is some complicated geometry with multiple hits on a single strip. GRADE=6 means not all strips are adjacent.
+    else if( Grade > 4 ) {
       H->SetNoDepth();
       Event->SetDepthCalibrationIncomplete();
-      if(Grade==4){
-        ++m_Error4;
-      }
-      else if(Grade==5){
+      if(Grade==5) {
         ++m_Error5;
       }
-      else if(Grade==6){
+      else if(Grade==6) {
         ++m_Error6;
       }
     }
 
-    // If the Grade is 0-3, we can handle it.
+    // If the Grade is 0-4, we can handle it.
     else {
 
       MVector LocalPosition, PositionResolution, GlobalPosition, GlobalResolution, LocalOrigin;
@@ -498,8 +496,8 @@ double MModuleDepthCalibration2024::GetTimingNoiseFWHM(int pixel_code, double En
   // Should follow 1/E relation
   // TODO: Determine real energy dependence and implement it here.
   double noiseFWHM = 0.0;
-  if ( m_Coeffs_Energy != NULL ){
-    noiseFWHM = m_Coeffs[pixel_code][2] * m_Coeffs_Energy/Energy;
+  if (m_CoeffsEnergy != 0) {
+    noiseFWHM = m_Coeffs[pixel_code][2] * m_CoeffsEnergy/Energy;
     if ( noiseFWHM < 3.0*2.355 ){
       noiseFWHM = 3.0*2.355;
     }
@@ -525,8 +523,8 @@ bool MModuleDepthCalibration2024::LoadCoeffsFile(MString FName)
     while( F.ReadLine( Line ) ){
       if ( Line.BeginsWith('#') ){
         std::vector<MString> Tokens = Line.Tokenize(" ");
-        m_Coeffs_Energy = Tokens[5].ToDouble();
-        cout << "The stretch and offset were calculated for " << m_Coeffs_Energy << " keV." << endl;
+        m_CoeffsEnergy = Tokens[5].ToDouble();
+        cout << "The stretch and offset were calculated for " << m_CoeffsEnergy << " keV." << endl;
       }
       else {
         std::vector<MString> Tokens = Line.Tokenize(",");
@@ -750,12 +748,12 @@ int MModuleDepthCalibration2024::GetHitGrade(MHit* H){
   int return_value;
   // If 1 strip on each side, GRADE=0
   // This represents the center of the pixel
-  if( (PStrips.size() == 1) && (NStrips.size() == 1) || (PStrips.size() == 3) && (NStrips.size() == 3) ){
+  if (((PStrips.size() == 1) && (NStrips.size() == 1)) || ((PStrips.size() == 3) && (NStrips.size() == 3))) {
     return_value = 0;
   } 
   // If 2 hits on N side and 1 on P, GRADE=1
   // This represents the middle of the edges of the pixel
-  else if( (PStrips.size() == 1) && (NStrips.size() == 2) ){
+  else if ((PStrips.size() == 1) && (NStrips.size() == 2)) {
     return_value = 1;
   } 
 

@@ -62,6 +62,7 @@ MModuleStripPairingChiSquare::MModuleStripPairingChiSquare() : MModule()
   // Set all modules, which have to be done before this module
   AddPreceedingModuleType(MAssembly::c_EventLoader);
   AddPreceedingModuleType(MAssembly::c_EnergyCalibration);
+  AddPreceedingModuleType(MAssembly::c_TACcut, false);
 
   // Set all types this modules handles
   AddModuleType(MAssembly::c_StripPairing);
@@ -402,21 +403,43 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
           //           PrintCombi(NCombi[p]);
           //         }
           double ChiSquare = 0;
+          vector<double> HVtauList;
+          vector<double> LVtauList;
+          vector<double> HVtauResolutionList;
+          vector<double> LVtauResolutionList;
+          double HVtauMeanResolution = 0;
+          double LVtauMeanResolution = 0;
+          double HVtauMean = 0;
+          double LVtauMean = 0;
 
           for (unsigned int en = 0; en < MinSize; ++en) {
             unsigned int ep = en;
 
             double xEnergy = 0;
             double xResolution = 0;
+            unsigned int dominantX;
+            double MaxEnergy = -numeric_limits<double>::max();
             for (unsigned int entry = 0; entry < Combinations[d][0][xc][en].size(); ++entry) { // Sum up energy on xstrips in the set of strips, en
+              double tempEnergy = StripHits[d][0][Combinations[d][0][xc][en][entry]]->GetEnergy();
+              if (tempEnergy > MaxEnergy){
+                dominantX = entry;
+                MaxEnergy = tempEnergy;
+              }
               xEnergy += StripHits[d][0][Combinations[d][0][xc][en][entry]]->GetEnergy();
               xResolution += pow(StripHits[d][0][Combinations[d][0][xc][en][entry]]->GetEnergyResolution(), 2);
             }
 
             double yEnergy = 0;
             double yResolution = 0;
+            unsigned int dominantY;
+            MaxEnergy = -numeric_limits<double>::max();
             for (unsigned int entry = 0; entry < Combinations[d][1][yc][ep].size(); ++entry) { // Sum up energy on ystrips in the set of strips, ep
-              yEnergy += StripHits[d][1][Combinations[d][1][yc][ep][entry]]->GetEnergy();
+              double tempEnergy = StripHits[d][1][Combinations[d][1][yc][ep][entry]]->GetEnergy();
+              if (tempEnergy > MaxEnergy){
+                dominantY = entry;
+                MaxEnergy = tempEnergy;
+              }
+              yEnergy += tempEnergy;
               yResolution += pow(StripHits[d][1][Combinations[d][1][yc][ep][entry]]->GetEnergyResolution(), 2);
             }
 
@@ -642,6 +665,27 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
   Event->SetAnalysisProgress(MAssembly::c_StripPairing);
 
   return true;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+vector<size_t> MModuleStripPairingChiSquare::Argsort(vector<double> &list)
+{
+  // Return the order of indices resulting from list sorting
+  // initialize original index locations
+  vector<size_t> idx(list.size());
+  iota(idx.begin(), idx.end(), 0);
+
+  // sort indexes based on comparing values in v
+  // using std::stable_sort instead of std::sort
+  // to avoid unnecessary index re-orderings
+  // when v contains elements of equal values 
+  stable_sort(idx.begin(), idx.end(),
+       [&list](size_t i1, size_t i2) {return list[i1] < list[i2];});
+
+  return idx;
 }
 
 
