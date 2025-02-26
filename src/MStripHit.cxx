@@ -81,7 +81,10 @@ void MStripHit::Clear()
   m_ADCUnits = 0;
   m_Energy = 0;
   m_EnergyResolution = 0;
+  m_TAC = 0;
+  m_TACResolution = 0;
   m_Timing = 0;
+  m_TimingResolution = 0;
   m_PreampTemp = 0;
   m_Origins.clear();
 }
@@ -190,7 +193,7 @@ void MStripHit::StreamRoa(ostream& S)
    <<m_ReadOutElement->GetStripID()<<" "
    <<((m_ReadOutElement->IsLowVoltageStrip() == true) ? "l" : "h")<<" "
    <<m_ADCUnits<<" "
-   <<m_Timing<<" "
+   <<m_TAC<<" "
    <<m_PreampTemp<<" ";
   for (unsigned int i = 0; i < m_Origins.size(); ++i) {
     if (i != 0) S<<";";

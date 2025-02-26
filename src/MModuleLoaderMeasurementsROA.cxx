@@ -195,7 +195,7 @@ bool MModuleLoaderMeasurementsROA::ReadNextEvent(MReadOutAssembly* Event)
     SH->SetStripID(Strip->GetStripID());
     
     if (Timing != nullptr) {
-      SH->SetTiming(Timing->GetTiming());
+      SH->SetTAC(Timing->GetTiming());
     } else {
       cout<<m_Name<<": Warning: Event without timing found"<<endl;
     }
