@@ -55,7 +55,7 @@ MModuleTACcut::MModuleTACcut() : MModule()
   // Set all module relevant information
 
   // Set the module name --- has to be unique
-  m_Name = "TAC Cut";
+  m_Name = "TAC Calibration";
 
   // Set the XML tag --- has to be unique --- no spaces allowed
   m_XmlTag = "XmlTagTACcut";
@@ -76,7 +76,7 @@ MModuleTACcut::MModuleTACcut() : MModule()
   // Set all modules, which can follow this module
   AddSucceedingModuleType(MAssembly::c_StripPairing);
   AddSucceedingModuleType(MAssembly::c_DepthCorrection);
-
+  AddSucceedingModuleType(MAssembly::c_EnergyCalibration);
   // Set if this module has an options GUI
   // Overwrite ShowOptionsGUI() with the call to the GUI!
   m_HasOptionsGUI = true;
@@ -129,7 +129,7 @@ void MModuleTACcut::CreateExpos()
 
   // Set the histogram display
   m_ExpoTACcut = new MGUIExpoTACcut(this);
-  m_ExpoTACcut->SetTACHistogramArrangement(&m_DetectorIDs);
+  m_ExpoTACcut->SetTACHistogramArrangement(m_DetectorIDs);
   for(unsigned int i = 0; i < m_DetectorIDs.size(); ++i){
     unsigned int DetID = m_DetectorIDs[i];
     m_ExpoTACcut->SetTACHistogramParameters(DetID, 120, 0, 20000);

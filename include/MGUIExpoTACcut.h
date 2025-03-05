@@ -67,7 +67,7 @@ class MGUIExpoTACcut : public MGUIExpo
   //!  0    1    2    3 
   //!  4    5    6    7
   //!  8    9   10   11
-  void SetTACHistogramArrangement(vector<unsigned int>* DetIDs);
+  void SetTACHistogramArrangement(const vector<unsigned int> DetIDs);
   
   //! Set the energy histogram parameters 
   void SetTACHistogramParameters(unsigned int DetID, unsigned int NBins, double TACMin, double TACMax);
