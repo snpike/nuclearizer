@@ -111,7 +111,7 @@ bool MModuleTACcut::Initialize()
 {
   // Initialize the module 
 
-  if( LoadTACCalFile(m_TACCalFile) == false ){
+  if (LoadTACCalFile(m_TACCalFile) == false) {
     cout << "TAC Calibration file could not be loaded." << endl;
     return false;
   }
@@ -130,7 +130,7 @@ void MModuleTACcut::CreateExpos()
   // Set the histogram display
   m_ExpoTACcut = new MGUIExpoTACcut(this);
   m_ExpoTACcut->SetTACHistogramArrangement(m_DetectorIDs);
-  for(unsigned int i = 0; i < m_DetectorIDs.size(); ++i){
+  for (unsigned int i = 0; i < m_DetectorIDs.size(); ++i) {
     unsigned int DetID = m_DetectorIDs[i];
     m_ExpoTACcut->SetTACHistogramParameters(DetID, 120, 0, 20000);
   }
@@ -145,14 +145,14 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
   // Main data analysis routine, which updates the event to a new level 
 
   // Apply cuts to the TAC values:
-  for (unsigned int i = 0; i < Event->GetNStripHits(); ) {
+  for (unsigned int i = 0; i < Event->GetNStripHits();) {
     MStripHit* SH = Event->GetStripHit(i);
 
-    if ( HasExpos()==true ){
+    if (HasExpos()==true) {
       m_ExpoTACcut->AddTAC(SH->GetDetectorID(), SH->GetTiming());
     }
     // takes inputted min and max TAC values from the GUI module to make cuts 
-    if ( SH->GetTiming() < m_MinimumTAC || SH->GetTiming() > m_MaximumTAC) {
+    if (SH->GetTiming() < m_MinimumTAC || SH->GetTiming() > m_MaximumTAC) {
       // cout<<"HACK: Removing strip ht due to TAC "<<SH->GetTiming()<<" cut or energy "<<SH->GetEnergy()<<endl;
       Event->RemoveStripHit(i);
       delete SH;
@@ -161,16 +161,15 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
     }
   }
 
-  for (unsigned int i = 0; i < Event->GetNStripHits(); ++i){
+  for (unsigned int i = 0; i < Event->GetNStripHits(); ++i) {
     MStripHit* SH = Event->GetStripHit(i);
     double TAC_timing = SH->GetTiming();
     double ns_timing;
     int DetID = SH->GetDetectorID();
     int StripID = SH->GetStripID();
-    if ( SH->IsLowVoltageStrip() == true ){
+    if (SH->IsLowVoltageStrip() == true) {
       ns_timing = (TAC_timing*m_LVTACCal[DetID][StripID][0] + m_LVTACCal[DetID][StripID][1]);
-    }
-    else{
+    } else {
       ns_timing = TAC_timing*m_HVTACCal[DetID][StripID][0] + m_HVTACCal[DetID][StripID][1];
     }
     SH->SetTiming(ns_timing);
@@ -248,10 +247,10 @@ bool MModuleTACcut::LoadTACCalFile(MString FName)
     return false;
   } else {
     MString Line;
-    while( F.ReadLine( Line ) ){
-      if( !Line.BeginsWith("#") ){
+    while (F.ReadLine(Line)) {
+      if (!Line.BeginsWith("#")) {
         std::vector<MString> Tokens = Line.Tokenize(",");
-        if( Tokens.size() == 7 ){
+        if (Tokens.size() == 7) {
           int DetID = Tokens[0].ToInt();
           int StripID = Tokens[2].ToInt();
           double taccal = Tokens[3].ToDouble();
@@ -269,10 +268,9 @@ bool MModuleTACcut::LoadTACCalFile(MString FName)
             m_DetectorIDs.push_back(DetID);
           }
           
-          if ( Tokens[1] == "l" ){
+          if (Tokens[1] == "l") {
             m_LVTACCal[DetID][StripID] = cal_vals;
-          }
-          else if ( Tokens[1] == "h" ){
+          } else if (Tokens[1] == "h") {
             m_HVTACCal[DetID][StripID] = cal_vals;
           }
         }
