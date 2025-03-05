@@ -149,11 +149,10 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
     MStripHit* SH = Event->GetStripHit(i);
 
     if (HasExpos()==true) {
-      m_ExpoTACcut->AddTAC(SH->GetDetectorID(), SH->GetTiming());
+      m_ExpoTACcut->AddTAC(SH->GetDetectorID(), SH->GetTAC());
     }
     // takes inputted min and max TAC values from the GUI module to make cuts 
-    if (SH->GetTiming() < m_MinimumTAC || SH->GetTiming() > m_MaximumTAC) {
-      // cout<<"HACK: Removing strip ht due to TAC "<<SH->GetTiming()<<" cut or energy "<<SH->GetEnergy()<<endl;
+    if (SH->GetTAC() < m_MinimumTAC || SH->GetTAC() > m_MaximumTAC) {
       Event->RemoveStripHit(i);
       delete SH;
     } else {
@@ -163,7 +162,7 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
 
   for (unsigned int i = 0; i < Event->GetNStripHits(); ++i) {
     MStripHit* SH = Event->GetStripHit(i);
-    double TAC_timing = SH->GetTiming();
+    double TAC_timing = SH->GetTAC();
     double ns_timing;
     int DetID = SH->GetDetectorID();
     int StripID = SH->GetStripID();

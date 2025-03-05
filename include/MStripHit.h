@@ -101,10 +101,25 @@ class MStripHit
   //! Return the calibrated energy
   double GetEnergyResolution() const { return m_EnergyResolution; }
 
-  //! Set the Timing of the top side
+  //! Set the TAC
+  void SetTAC(double TAC) { m_TAC = TAC; }
+  //! Return the TAC
+  double GetTAC() const { return m_TAC; }
+
+  //! Set the TAC resolution
+  void SetTACResolution(double TACResolution) { m_TACResolution = TACResolution; }
+  //! Return the TAC resolution
+  double GetTACResolution() const { return m_TACResolution; }
+
+  //! Set the Timing in nanoseconds
   void SetTiming(double Timing) { m_Timing = Timing; }
-  //! Return the Timing of the top side
+  //! Return the Timing in nanoseconds
   double GetTiming() const { return m_Timing; }
+
+  //! Set the Timing resolution
+  void SetTimingResolution(double TimingResolution) { m_TimingResolution = TimingResolution; }
+  //! Return the Timing resolution
+  double GetTimingResolution() const { return m_TimingResolution; }
 
   //! Set the Temperature of the relavent preamp (in degrees C)
   void SetPreampTemp(double PreampTemp) { m_PreampTemp = PreampTemp; }
@@ -152,8 +167,14 @@ class MStripHit
   double m_Energy;
   //! The energy resolution
   double m_EnergyResolution;
-  //! Timing of the top side
+  //! TAC timing
+  double m_TAC;
+  //! TAC timing resolution
+  double m_TACResolution;
+  //! Timing in ns
   double m_Timing;
+  //! Timing resolution in ns
+  double m_TimingResolution;
   //! Temperature of Preamp
   double m_PreampTemp;
   
