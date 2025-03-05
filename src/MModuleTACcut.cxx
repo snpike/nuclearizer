@@ -116,7 +116,7 @@ bool MModuleTACcut::Initialize()
     return false;
   }
 
-  return true;
+  return MModule::Initialize();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
