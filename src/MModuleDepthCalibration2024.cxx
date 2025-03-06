@@ -793,6 +793,11 @@ bool MModuleDepthCalibration2024::ReadXmlConfiguration(MXmlNode* Node)
   m_SplinesFile = SplinesFileNameNode->GetValue();
   }
 
+  MXmlNode* UCSDOverrideNode = Node->GetNode("UCSDOverride");
+  if( UCSDOverrideNode != NULL ){
+      m_UCSDOverride = (bool) UCSDOverrideNode->GetValueAsInt();
+  }
+
   return true;
 }
 
@@ -806,6 +811,7 @@ MXmlNode* MModuleDepthCalibration2024::CreateXmlConfiguration()
   MXmlNode* Node = new MXmlNode(0,m_XmlTag);
   new MXmlNode(Node, "CoeffsFileName", m_CoeffsFile);
   new MXmlNode(Node, "SplinesFileName", m_SplinesFile);
+  new MXmlNode(Node, "UCSDOverride",(unsigned int) m_UCSDOverride);  
   
   return Node;
 }
