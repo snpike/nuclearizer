@@ -363,12 +363,11 @@ bool MModuleDepthCalibration2024::AnalyzeEvent(MReadOutAssembly* Event)
 
           Zsigma =  sqrt(depth_var/prob_sum);
           Zpos = mean_depth - (m_Thicknesses[DetID]/2.0);
-          // Zpos = mean_depth;
-	  // cout << "calculated depth: " << Zpos << endl;
 
           // Add the depth to the GUI histogram.
-          m_ExpoDepthCalibration->AddDepth(DetID, Zpos);
-
+          if (Event->IsStripPairingIncomplete()==false) {
+            m_ExpoDepthCalibration->AddDepth(DetID, Zpos);
+          }
           m_NoError+=1;
         }
       }
