@@ -401,17 +401,38 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
 
             double xEnergy = 0;
             double xResolution = 0;
-            for (unsigned int entry = 0; entry < Combinations[d][0][xc][en].size(); ++entry) {
+            unsigned int dominantX;
+            double MaxEnergy = -numeric_limits<double>::max();
+            
+            for (unsigned int entry = 0; entry < Combinations[d][0][xc][en].size(); ++entry) { // Sum up energy on xstrips in the set of strips, en
+              double tempEnergy = StripHits[d][0][Combinations[d][0][xc][en][entry]]->GetEnergy();
+              if (tempEnergy > MaxEnergy) {
+                dominantX = entry;
+                MaxEnergy = tempEnergy;
+              }
               xEnergy += StripHits[d][0][Combinations[d][0][xc][en][entry]]->GetEnergy();
               xResolution += pow(StripHits[d][0][Combinations[d][0][xc][en][entry]]->GetEnergyResolution(), 2);
             }
 
             double yEnergy = 0;
             double yResolution = 0;
-            for (unsigned int entry = 0; entry < Combinations[d][1][yc][ep].size(); ++entry) {
-              yEnergy += StripHits[d][1][Combinations[d][1][yc][ep][entry]]->GetEnergy();
+            unsigned int dominantY;
+            MaxEnergy = -numeric_limits<double>::max();
+            
+            for (unsigned int entry = 0; entry < Combinations[d][1][yc][ep].size(); ++entry) { // Sum up energy on ystrips in the set of strips, ep
+              double tempEnergy = StripHits[d][1][Combinations[d][1][yc][ep][entry]]->GetEnergy();
+              if (tempEnergy > MaxEnergy){
+                dominantY = entry;
+                MaxEnergy = tempEnergy;
+              }
+              yEnergy += tempEnergy;
               yResolution += pow(StripHits[d][1][Combinations[d][1][yc][ep][entry]]->GetEnergyResolution(), 2);
             }
+
+            double LVtau = StripHits[d][0][Combinations[d][0][xc][en][dominantX]]->GetTiming();
+            double HVtau = StripHits[d][1][Combinations[d][1][yc][ep][dominantY]]->GetTiming();
+            double CTDHVShift = LVtau - HVtau + 200;
+            yEnergy /= 1 - (0.005687*CTDHVShift - 1.164)/100;
             //cout << "yEnergy: " << yEnergy << endl;
             //cout << "  Sub - Test en=" << en << " (" << xEnergy << ") with ep="
             //     << ep << " (" << yEnergy << "):" << endl;
