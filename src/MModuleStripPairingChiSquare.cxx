@@ -428,6 +428,10 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
               yEnergy += tempEnergy;
               yResolution += pow(StripHits[d][1][Combinations[d][1][yc][ep][entry]]->GetEnergyResolution(), 2);
             }
+            double LVtau = StripHits[d][0][Combinations[d][0][xc][en][dominantX]]->GetTiming();
+            double HVtau = StripHits[d][1][Combinations[d][1][yc][ep][dominantY]]->GetTiming();
+            double CTDHVShift = LVtau - HVtau + 200;
+            yEnergy /= 1 - (0.005687*CTDHVShift - 1.164)/100;
             //cout << "yEnergy: " << yEnergy << endl;
             //cout << "  Sub - Test en=" << en << " (" << xEnergy << ") with ep="
             //     << ep << " (" << yEnergy << "):" << endl;
