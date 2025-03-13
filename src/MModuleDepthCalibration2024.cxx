@@ -122,6 +122,7 @@ bool MModuleDepthCalibration2024::Initialize()
   // ie DetID=0 should be the 0th detector in m_Detectors, DetID=1 should the 1st, etc.
   m_Detectors = m_Geometry->GetDetectorList();
 
+
   // Look through the Geometry and get the names and thicknesses of all the detectors.
   for(unsigned int i = 0; i < m_Detectors.size(); ++i){
     // For now, DetID is in order of detectors, which puts contraints on how the geometry file should be written.
@@ -343,8 +344,14 @@ bool MModuleDepthCalibration2024::AnalyzeEvent(MReadOutAssembly* Event)
           
           // Weight the depth by probability
       	  double prob_sum = 0.0;
+          double max_prob = 0.0;
+          double maxprob_depth;
       	  for( unsigned int k=0; k < prob_dist.size(); ++k ){
       	    prob_sum += prob_dist[k];
+            if(prob_dist[k] > max_prob){
+              max_prob=prob_dist[k];
+              maxprob_depth = depthvec[k];
+            }
       	  }
           //double prob_sum = std::accumulate(prob_dist.begin(), prob_dist.end(), 0);
 	         //cout << "summed probability: " << prob_sum << endl;
@@ -424,14 +431,37 @@ MStripHit* MModuleDepthCalibration2024::GetDominantStrip(vector<MStripHit*>& Str
   return MaxStrip;
 }
 
+MStripHit* MModuleDepthCalibration2024::GetMinimumStrip(vector<MStripHit*>& Strips, double& EnergyFraction)
+{
+  double MinEnergy = numeric_limits<double>::max(); // AZ: When both energies are zero (which shouldn't happen) we still pick one
+  double TotalEnergy = 0.0;
+  MStripHit* MinStrip = nullptr;
+
+  // Iterate through strip hits and get the strip with highest energy
+  for (const auto SH : Strips) {
+    double Energy = SH->GetEnergy();
+    TotalEnergy += Energy;
+    if (Energy < MinEnergy) {
+      MinStrip = SH;
+      MinEnergy = Energy;
+    }
+  }
+  if (TotalEnergy == 0) {
+    EnergyFraction = 0;
+  } else {
+    EnergyFraction = MinEnergy/TotalEnergy;
+  }
+  return MinStrip;
+}
+
 double MModuleDepthCalibration2024::GetTimingNoiseFWHM(int pixel_code, double Energy)
 {
   // Placeholder for determining the timing noise with energy, and possibly even on a pixel-by-pixel basis.
   // Should follow 1/E relation
   // TODO: Determine real energy dependence and implement it here.
   double noiseFWHM = 0.0;
-  if ( m_Coeffs_Energy != NULL ){
-    noiseFWHM = m_Coeffs[pixel_code][2] * m_Coeffs_Energy/Energy;
+  if (m_CoeffsEnergy != 0) {
+    noiseFWHM = m_Coeffs[pixel_code][2] * m_CoeffsEnergy/Energy;
     if ( noiseFWHM < 3.0*2.355 ){
       noiseFWHM = 3.0*2.355;
     }
@@ -457,8 +487,8 @@ bool MModuleDepthCalibration2024::LoadCoeffsFile(MString FName)
     while( F.ReadLine( Line ) ){
       if ( Line.BeginsWith('#') ){
         std::vector<MString> Tokens = Line.Tokenize(" ");
-        m_Coeffs_Energy = Tokens[5].ToDouble();
-        cout << "The stretch and offset were calculated for " << m_Coeffs_Energy << " keV." << endl;
+        m_CoeffsEnergy = Tokens[5].ToDouble();
+        cout << "The stretch and offset were calculated for " << m_CoeffsEnergy << " keV." << endl;
       }
       else {
         std::vector<MString> Tokens = Line.Tokenize(",");
@@ -639,7 +669,7 @@ int MModuleDepthCalibration2024::GetHitGrade(MHit* H){
   } 
   // If 2 hits on N side and 1 on P, GRADE=1
   // This represents the middle of the edges of the pixel
-  else if( (PStrips.size() == 1) && (NStrips.size() == 2) ){
+  else if ((PStrips.size() == 1) && (NStrips.size() == 2)) {
     return_value = 1;
   } 
 
