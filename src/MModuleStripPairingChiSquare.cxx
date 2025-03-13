@@ -373,16 +373,16 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
     vector<vector<unsigned int>> BestXSideCombo;
     vector<vector<unsigned int>> BestYSideCombo;
 
-    for (unsigned int xc = 0; xc < Combinations[d][0].size(); ++xc) {
-      for (unsigned int yc = 0; yc < Combinations[d][1].size(); ++yc) {
+    for (unsigned int xc = 0; xc < Combinations[d][0].size(); ++xc) { // Loop over combinations of x-strips (xc represents a list of sets of strips,  and each set is a proposed Hit)
+      for (unsigned int yc = 0; yc < Combinations[d][1].size(); ++yc) { // Loop over combinations of y-strips (yc represents a list of sets of strips,  and each set is a proposed Hit)
 
-        if (abs(long(Combinations[d][0][xc].size()) - long(Combinations[d][1][yc].size())) > 1) {
+        if (abs(long(Combinations[d][0][xc].size()) - long(Combinations[d][1][yc].size())) > 1) { // Skip this pair of combos if the x- and y-strip combos differ in size by more than one
           continue;
         }
 
         unsigned int MinSize = min(Combinations[d][0][xc].size(), Combinations[d][1][yc].size());
 
-        if (max(Combinations[d][0][xc].size(), Combinations[d][1][yc].size()) > MaxCombinations) {
+        if (max(Combinations[d][0][xc].size(), Combinations[d][1][yc].size()) > MaxCombinations) { // Skip if either side has more than 5 sets of strips
           continue;
         }
 
@@ -428,18 +428,13 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
               yEnergy += tempEnergy;
               yResolution += pow(StripHits[d][1][Combinations[d][1][yc][ep][entry]]->GetEnergyResolution(), 2);
             }
-
-            double LVtau = StripHits[d][0][Combinations[d][0][xc][en][dominantX]]->GetTiming();
-            double HVtau = StripHits[d][1][Combinations[d][1][yc][ep][dominantY]]->GetTiming();
-            double CTDHVShift = LVtau - HVtau + 200;
-            yEnergy /= 1 - (0.005687*CTDHVShift - 1.164)/100;
             //cout << "yEnergy: " << yEnergy << endl;
             //cout << "  Sub - Test en=" << en << " (" << xEnergy << ") with ep="
             //     << ep << " (" << yEnergy << "):" << endl;
             //cout<<xResolution<<":"<<yResolution<<endl;
-            ChiSquare += (xEnergy - yEnergy)*(xEnergy - yEnergy) / (xResolution + yResolution);
+            ChiSquare += (xEnergy - yEnergy)*(xEnergy - yEnergy) / (xResolution + yResolution); // Chi-squared is determined by how close the energies on either side match
           }
-          ChiSquare /= MinSize;
+          ChiSquare /= MinSize; // Chi-squared is normalized by the number of sets of strips in the smaller of the two combos xc and yc
           //cout<<"Chi square: "<<ChiSquare<<endl;
 
           if (ChiSquare < BestChiSquare) {
@@ -501,18 +496,24 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
     double XEnergyTotal = 0;
     double YEnergyTotal = 0;
     double EnergyTotal = 0;
+    double XEnergyResTotal = 0;
+    double YEnergyResTotal = 0;
+
 
     for (unsigned int h = 0; h < min(BestXSideCombo.size(), BestYSideCombo.size()); ++h) {
       XPos = 0;
       YPos = 0;
       XEnergy = 0;
       YEnergy = 0;
+      XEnergyRes = 0;
+      YEnergyRes = 0;
 
       for (unsigned int sh = 0; sh < BestXSideCombo[h].size(); ++sh) {
         //cout<<"x-pos: "<<StripHits[d][0][BestXSideCombo[h][sh]]->GetNonStripPosition()<<endl;
         XEnergy += StripHits[d][0][BestXSideCombo[h][sh]]->GetEnergy();
         XEnergyRes += StripHits[d][0][BestXSideCombo[h][sh]]->GetEnergyResolution()*StripHits[d][0][BestXSideCombo[h][sh]]->GetEnergyResolution();
       }
+      XEnergyResTotal += XEnergyRes;
       XEnergyRes = sqrt(XEnergyRes);
       XEnergyTotal += XEnergy;
 
@@ -520,6 +521,7 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
         YEnergy += StripHits[d][1][BestYSideCombo[h][sh]]->GetEnergy();
         YEnergyRes += StripHits[d][1][BestYSideCombo[h][sh]]->GetEnergyResolution()*StripHits[d][1][BestYSideCombo[h][sh]]->GetEnergyResolution();
       }
+      YEnergyResTotal += YEnergyRes;
       YEnergyRes = sqrt(YEnergyRes);
       YEnergyTotal += YEnergy;
 
@@ -551,8 +553,10 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
         Hit->AddStripHit(StripHits[d][1][BestYSideCombo[h][sh]]);
       }
     }
+    XEnergyResTotal = sqrt(XEnergyResTotal);
+    YEnergyResTotal = sqrt(YEnergyResTotal);
 
-    if (EnergyTotal > max(XEnergyTotal, YEnergyTotal) + 2.5*max(XEnergyRes, YEnergyRes) || EnergyTotal < min(XEnergyTotal, YEnergyTotal) - 2.5*max(XEnergyRes, YEnergyRes)) {
+    if (EnergyTotal > max(XEnergyTotal, YEnergyTotal) + 2.5*max(XEnergyResTotal, YEnergyResTotal) || EnergyTotal < min(XEnergyTotal, YEnergyTotal) - 2.5*max(XEnergyResTotal, YEnergyResTotal)) {
       Event->SetStripPairingIncomplete(true, "Strips not pairable wihin 2.5 sigma of measure denergy");
       Event->SetAnalysisProgress(MAssembly::c_StripPairing);
       return false;
