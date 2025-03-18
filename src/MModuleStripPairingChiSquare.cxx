@@ -397,6 +397,8 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
           continue;
         }
 
+        sort(Combinations[d][1][yc].begin(), Combinations[d][1][yc].end());
+        sort(Combinations[d][0][xc].begin(), Combinations[d][0][xc].end());
         bool MorePermutations = true;
         while (MorePermutations == true) {
           //cout<<"New permutation..."<<endl;
@@ -473,8 +475,8 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
             LVtauMean += LVtau;
 
             // !!! TODO: Fix timing resolution. Maybe put GetTimingResolution into MStripHit
-            double LVtauResolution = 3*60/StripHits[d][0][Combinations[d][0][xc][en][dominantX]]->GetEnergy();
-            double HVtauResolution = 3*60/StripHits[d][1][Combinations[d][1][yc][ep][dominantY]]->GetEnergy();
+            double LVtauResolution =  0.5 + 3*60/StripHits[d][0][Combinations[d][0][xc][en][dominantX]]->GetEnergy();
+            double HVtauResolution =  0.5 + 3*60/StripHits[d][1][Combinations[d][1][yc][ep][dominantY]]->GetEnergy();
 
             HVtauResolutionList.push_back(HVtauResolution*HVtauResolution);
             LVtauResolutionList.push_back(LVtauResolution*LVtauResolution);
@@ -483,6 +485,12 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
             LVtauMeanResolution += LVtauResolution*LVtauResolution;
 
             yEnergy /= 1 - (0.005687*CTDHVShift - 1.164)/100;
+
+            if ((xEnergy - yEnergy)*(xEnergy - yEnergy) / (xResolution + yResolution) > 25) {
+              XYMatch = false;
+              break;
+            }
+            // yEnergy /= 1 - (0.01*CTDHVShift - 1.164)/100;
             //cout << "yEnergy: " << yEnergy << endl;
             //cout << "  Sub - Test en=" << en << " (" << xEnergy << ") with ep="
             //     << ep << " (" << yEnergy << "):" << endl;
@@ -529,7 +537,7 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
           ChiSquare /= MinSize; // Chi-squared is normalized by the number of sets of strips in the smaller of the two combos xc and yc
           //cout<<"Chi square: "<<ChiSquare<<endl;
 
-          if (ChiSquare < BestChiSquare && TimesOrdered ==true) {
+          if (ChiSquare < BestChiSquare && TimesOrdered ==true && XYMatch == true) {
             BestChiSquare = ChiSquare;
             BestXSideCombo = Combinations[d][0][xc];
             BestYSideCombo = Combinations[d][1][yc];
