@@ -120,7 +120,7 @@ class MModuleDepthCalibration2024 : public MModule
  protected:
 
   unordered_map<int, vector<double>> m_Coeffs;
-  double m_Coeffs_Energy;
+  double m_CoeffsEnergy;
   MString m_CoeffsFile;
   MString m_SplinesFile;
   unordered_map<int, MString> m_DetectorNames;

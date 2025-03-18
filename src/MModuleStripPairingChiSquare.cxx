@@ -81,6 +81,8 @@ MModuleStripPairingChiSquare::MModuleStripPairingChiSquare() : MModule()
 
   // Can we use multiple instances of this class
   m_AllowMultipleInstances = true;
+
+  m_TooManyStrips = 0;
 }
 
 
@@ -230,6 +232,7 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
   for (unsigned int d = 0; d < StripHits.size(); ++d) { // Detector loop
     for (unsigned int side = 0; side <=1; ++side) { // side loop
       if (StripHits[d][side].size() > MaxStripHits) {
+        ++m_TooManyStrips;
         Event->SetStripPairingIncomplete(true, "More than 6 hit strIps on one side");
         Event->SetAnalysisProgress(MAssembly::c_StripPairing);
         return false;
@@ -673,7 +676,7 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
 ////////////////////////////////////////////////////////////////////////////////
 
 
-vector<size_t> MModuleStripPairingChiSquare::Argsort(vector<double> &list)
+vector<size_t> MModuleStripPairingChiSquare::Argsort(const vector<double> &list)
 {
   // Return the order of indices resulting from list sorting
   // initialize original index locations
@@ -697,6 +700,7 @@ vector<size_t> MModuleStripPairingChiSquare::Argsort(vector<double> &list)
 void MModuleStripPairingChiSquare::Finalize()
 {
   // Finalize the analysis - do all cleanup, i.e., undo Initialize() 
+  cout<<"Combos with too many strips: "<<m_TooManyStrips<<endl;
 
   MModule::Finalize();
 }

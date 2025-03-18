@@ -79,7 +79,7 @@ class MModuleStripPairingChiSquare : public MModule
   vector<vector<vector<unsigned int>>> FindNewCombinations(vector<vector<vector<unsigned int>>> OldOnes, vector<MStripHit*> StripHits);
 
   //! Return the order of indices resulting from sorting a vector
-  vector<size_t> Argsort(vector<double> &list);
+  vector<size_t> Argsort(const vector<double> &list);
 
   // private methods:
  private:
@@ -92,6 +92,7 @@ class MModuleStripPairingChiSquare : public MModule
   MGUIExpoStripPairing* m_ExpoStripPairing;
   MGUIExpoStripPairingHits* m_ExpoStripPairingHits;
   MGUIExpoStripPairingStripHits* m_ExpoStripPairingStripHits;
+  unsigned int m_TooManyStrips;
 
 
   // private members:
