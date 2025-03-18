@@ -414,6 +414,7 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
           double LVtauMeanResolution = 0;
           double HVtauMean = 0;
           double LVtauMean = 0;
+          bool XYMatch = true;
 
           for (unsigned int en = 0; en < MinSize; ++en) {
             unsigned int ep = en;
@@ -421,32 +422,47 @@ bool MModuleStripPairingChiSquare::AnalyzeEvent(MReadOutAssembly* Event)
             double xEnergy = 0;
             double xResolution = 0;
             unsigned int dominantX;
-            double MaxEnergy = -numeric_limits<double>::max();
+            // double MaxEnergy = -numeric_limits<double>::max();
+            vector<double> SHLVTauList;
             
             for (unsigned int entry = 0; entry < Combinations[d][0][xc][en].size(); ++entry) { // Sum up energy on xstrips in the set of strips, en
               double tempEnergy = StripHits[d][0][Combinations[d][0][xc][en][entry]]->GetEnergy();
-              if (tempEnergy > MaxEnergy) {
-                dominantX = entry;
-                MaxEnergy = tempEnergy;
-              }
+              // if (tempEnergy > MaxEnergy) {
+              //   dominantX = entry;
+              //   MaxEnergy = tempEnergy;
+              // }
               xEnergy += StripHits[d][0][Combinations[d][0][xc][en][entry]]->GetEnergy();
               xResolution += pow(StripHits[d][0][Combinations[d][0][xc][en][entry]]->GetEnergyResolution(), 2);
+              SHLVTauList.push_back(StripHits[d][0][Combinations[d][0][xc][en][entry]]->GetTiming());
             }
 
             double yEnergy = 0;
             double yResolution = 0;
             unsigned int dominantY;
-            MaxEnergy = -numeric_limits<double>::max();
+            // MaxEnergy = -numeric_limits<double>::max();
+            vector<double> SHHVTauList;
             
             for (unsigned int entry = 0; entry < Combinations[d][1][yc][ep].size(); ++entry) { // Sum up energy on ystrips in the set of strips, ep
               double tempEnergy = StripHits[d][1][Combinations[d][1][yc][ep][entry]]->GetEnergy();
-              if (tempEnergy > MaxEnergy){
-                dominantY = entry;
-                MaxEnergy = tempEnergy;
-              }
+              // if (tempEnergy > MaxEnergy){
+              //   dominantY = entry;
+              //   MaxEnergy = tempEnergy;
+              // }
               yEnergy += tempEnergy;
               yResolution += pow(StripHits[d][1][Combinations[d][1][yc][ep][entry]]->GetEnergyResolution(), 2);
+              SHHVTauList.push_back(StripHits[d][1][Combinations[d][1][yc][ep][entry]]->GetTiming());
             }
+
+            vector<size_t> SHLVTauArgsort = Argsort(SHLVTauList);
+            vector<size_t> SHHVTauArgsort = Argsort(SHHVTauList);
+            if (fabs(SHLVTauList[SHLVTauArgsort.back()] - SHHVTauList[SHHVTauArgsort.front()]) > fabs(SHLVTauList[SHLVTauArgsort.front()] - SHHVTauList[SHHVTauArgsort.back()])) {
+              dominantX = SHLVTauArgsort.back();
+              dominantY = SHHVTauArgsort.front();
+            } else {
+              dominantX = SHLVTauArgsort.front();
+              dominantY = SHHVTauArgsort.back();
+            }
+
 
             double LVtau = StripHits[d][0][Combinations[d][0][xc][en][dominantX]]->GetTiming();
             double HVtau = StripHits[d][1][Combinations[d][1][yc][ep][dominantY]]->GetTiming();

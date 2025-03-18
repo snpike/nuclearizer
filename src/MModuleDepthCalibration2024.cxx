@@ -244,6 +244,29 @@ bool MModuleDepthCalibration2024::AnalyzeEvent(MReadOutAssembly* Event)
       double YEnergyFraction;
       MStripHit* XSH = GetDominantStrip(XStrips, XEnergyFraction); 
       MStripHit* YSH = GetDominantStrip(YStrips, YEnergyFraction); 
+      
+      // TODO: For Card Cage, may need to add noise
+      double XTiming = XSH->GetTiming();
+      double YTiming = YSH->GetTiming();
+
+      double CTD = 0;
+      for (unsigned int xs=0; xs < XStrips.size(); ++xs) {
+        for (unsigned int ys=0; ys < YStrips.size(); ++ys) {
+          double tempCTD = 0;
+          if (XStrips[xs]->IsLowVoltageStrip() == true) {
+            tempCTD = YStrips[ys]->GetTiming() - XStrips[xs]->GetTiming();
+          } else {
+            tempCTD = XStrips[xs]->GetTiming() - YStrips[ys]->GetTiming();
+          }
+          if (fabs(tempCTD) > CTD) {
+            CTD = tempCTD;
+            XTiming = XStrips[xs]->GetTiming();
+            YTiming = YStrips[ys]->GetTiming();
+            XSH = XStrips[xs];
+            YSH = YStrips[ys];
+          }
+        }
+      }
 
       // cout << "found the dominant strips" << endl;
 
@@ -269,10 +292,6 @@ bool MModuleDepthCalibration2024::AnalyzeEvent(MReadOutAssembly* Event)
 
       // cout << "looking up the coefficients" << endl;
       vector<double>* Coeffs = GetPixelCoeffs(pixel_code);
-
-      // TODO: For Card Cage, may need to add noise
-      double XTiming = XSH->GetTiming();
-      double YTiming = YSH->GetTiming();
 
       // cout << "Got the coefficients: " << Coeffs << endl;
 
@@ -304,13 +323,13 @@ bool MModuleDepthCalibration2024::AnalyzeEvent(MReadOutAssembly* Event)
       	  Event->SetDepthCalibrationIncomplete();
       	}
 
-        double CTD;
-        if ( XSH->IsLowVoltageStrip() ){
-          CTD = (YTiming - XTiming);
-        }
-        else {
-          CTD = (XTiming - YTiming);
-        }
+        // double CTD;
+        // if ( XSH->IsLowVoltageStrip() ){
+        //   CTD = (YTiming - XTiming);
+        // }
+        // else {
+        //   CTD = (XTiming - YTiming);
+        // }
 
         // cout << "Got the CTD: " << CTD << endl;
 
