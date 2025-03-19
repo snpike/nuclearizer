@@ -91,6 +91,8 @@ MModuleDepthCalibration2024::MModuleDepthCalibration2024() : MModule()
   m_Error5 = 0;
   m_Error6 = 0;
   m_ErrorSH = 0;
+  m_ErrorNullSH=0;
+  m_ErrorNoE=0;
 }
 
 
@@ -203,30 +205,25 @@ bool MModuleDepthCalibration2024::AnalyzeEvent(MReadOutAssembly* Event)
 
     // Handle different grades differently    
     // GRADE=-1 is an error. Break from the loop and continue.
-    if ( Grade == -1 ){
+    if ( Grade < 0 ){
       H->SetNoDepth();
       Event->SetDepthCalibrationIncomplete();
-      ++m_ErrorSH;
-    }
-
-    // GRADE=5 is some complicated geometry with multiple hits on a single strip. 
-    // GRADE=4 means there are more than 2 strip hits on one or both sides.
-    else if( Grade > 3 ){
-      H->SetNoDepth();
-      Event->SetDepthCalibrationIncomplete();
-      if(Grade==4){
-        ++m_Error4;
+      if (Grade == -1) {
+        ++m_ErrorSH;
+      } else if (Grade == -2) {
+        ++m_ErrorNullSH;
+      } else if (Grade == -3) {
+        ++m_ErrorNoE;
       }
-      else if(Grade==5){
+    } else if (Grade > 4) { // GRADE=5 is some complicated geometry with multiple hits on a single strip. GRADE=6 means not all strips are adjacent.
+      H->SetNoDepth();
+      Event->SetDepthCalibrationIncomplete();
+      if (Grade==5) {
         ++m_Error5;
-      }
-      else if(Grade==6){
+      } else if (Grade==6) {
         ++m_Error6;
       }
-    }
-
-    // If the Grade is 0-3, we can handle it.
-    else {
+    } else { // If the Grade is 0-4, we can handle it.
 
       MVector LocalPosition, PositionResolution, GlobalPosition, GlobalResolution, LocalOrigin;
 
@@ -366,12 +363,11 @@ bool MModuleDepthCalibration2024::AnalyzeEvent(MReadOutAssembly* Event)
 
           Zsigma =  sqrt(depth_var/prob_sum);
           Zpos = mean_depth - (m_Thicknesses[DetID]/2.0);
-          // Zpos = mean_depth;
-	  // cout << "calculated depth: " << Zpos << endl;
 
           // Add the depth to the GUI histogram.
-          m_ExpoDepthCalibration->AddDepth(DetID, Zpos);
-
+          if (Event->IsStripPairingIncomplete()==false) {
+            m_ExpoDepthCalibration->AddDepth(DetID, Zpos);
+          }
           m_NoError+=1;
         }
       }
@@ -638,7 +634,7 @@ int MModuleDepthCalibration2024::GetHitGrade(MHit* H){
   int return_value;
   // If 1 strip on each side, GRADE=0
   // This represents the center of the pixel
-  if( (PStrips.size() == 1) && (NStrips.size() == 1) ){
+  if( (PStrips.size() == 1) && (NStrips.size() == 1) || (PStrips.size() == 3) && (NStrips.size() == 3) ){
     return_value = 0;
   } 
   // If 2 hits on N side and 1 on P, GRADE=1
@@ -797,6 +793,11 @@ bool MModuleDepthCalibration2024::ReadXmlConfiguration(MXmlNode* Node)
   m_SplinesFile = SplinesFileNameNode->GetValue();
   }
 
+  MXmlNode* UCSDOverrideNode = Node->GetNode("UCSDOverride");
+  if( UCSDOverrideNode != NULL ){
+      m_UCSDOverride = (bool) UCSDOverrideNode->GetValueAsInt();
+  }
+
   return true;
 }
 
@@ -810,6 +811,7 @@ MXmlNode* MModuleDepthCalibration2024::CreateXmlConfiguration()
   MXmlNode* Node = new MXmlNode(0,m_XmlTag);
   new MXmlNode(Node, "CoeffsFileName", m_CoeffsFile);
   new MXmlNode(Node, "SplinesFileName", m_SplinesFile);
+  new MXmlNode(Node, "UCSDOverride",(unsigned int) m_UCSDOverride);  
   
   return Node;
 }
@@ -829,6 +831,8 @@ void MModuleDepthCalibration2024::Finalize()
   cout << "Number of hits with non-adjacent strip hits: " << m_Error6 << endl;
   cout << "Number of hits with too many strip hits: " << m_Error4 << endl;
   cout << "Number of hits with no strip hits on one or both sides: " << m_ErrorSH << endl;
+  cout << "Number of hits with null strip hits: " << m_ErrorNullSH << endl;
+  cout << "Number of hits 0 energy on a strip hit: " << m_ErrorNoE << endl;
   /*
   TFile* rootF = new TFile("EHist.root","recreate");
   rootF->WriteTObject( EHist );
