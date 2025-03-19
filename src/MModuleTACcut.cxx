@@ -209,12 +209,19 @@ bool MModuleTACcut::ReadXmlConfiguration(MXmlNode* Node)
 {
   //! Read the configuration data from an XML node
 
-  /*
-  MXmlNode* SomeTagNode = Node->GetNode("SomeTag");
-  if (SomeTagNode != 0) {
-    m_SomeTagValue = SomeTagNode->GetValue();
+  MXmlNode* TACCalFileNameNode = Node->GetNode("TACCalFileName");
+  if (TACCalFileNameNode != 0) {
+    SetTACCalFileName(TACCalFileNameNode->GetValue());
   }
-  */
+
+  MXmlNode* MinimumTACNode = Node->GetNode("MinimumTAC");
+  if (MinimumTACNode != 0) {
+    m_MinimumTAC = MinimumTACNode->GetValueAsInt();
+  }
+  MXmlNode* MaximumTACNode = Node->GetNode("MaximumTAC");
+  if (MaximumTACNode != 0) {
+    m_MaximumTAC = MaximumTACNode->GetValueAsInt();
+  }
 
   return true;
 }
@@ -229,9 +236,9 @@ MXmlNode* MModuleTACcut::CreateXmlConfiguration()
 
   MXmlNode* Node = new MXmlNode(0, m_XmlTag);
   
-  /*
-  MXmlNode* SomeTagNode = new MXmlNode(Node, "SomeTag", "SomeValue");
-  */
+  new MXmlNode(Node, "TACCalFileName", m_TACCalFile);
+  new MXmlNode(Node, "MinimumTAC", m_MinimumTAC);
+  new MXmlNode(Node, "MaximumTAC", m_MaximumTAC);
 
   return Node;
 }
