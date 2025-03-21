@@ -92,6 +92,11 @@ MModuleTACcut::MModuleTACcut() : MModule()
   //initialize a min and max TAC value 
   m_MinimumTAC = 0;
   m_MaximumTAC = 20000;
+
+  m_ShapingOffset = 2255;
+  m_DisableTime = 1396;
+  m_FlagToEnDelay = 104;
+  m_CoincidenceWindow = 500;
 }
 
 
@@ -223,6 +228,26 @@ bool MModuleTACcut::ReadXmlConfiguration(MXmlNode* Node)
     m_MaximumTAC = MaximumTACNode->GetValueAsInt();
   }
 
+  MXmlNode* ShapingOffsetNode = Node->GetNode("ShapingOffset");
+  if (ShapingOffsetNode != 0) {
+    m_ShapingOffset = ShapingOffsetNode->GetValueAsDouble();
+  }
+
+  MXmlNode* DisableTimeNode = Node->GetNode("DisableTime");
+  if (DisableTimeNode != 0) {
+    m_DisableTime = DisableTimeNode->GetValueAsDouble();
+  }
+
+  MXmlNode* FlagToEnDelayNode = Node->GetNode("FlagToEnDelay");
+  if (FlagToEnDelayNode != 0) {
+    m_FlagToEnDelay = FlagToEnDelayNode->GetValueAsDouble();
+  }
+
+  MXmlNode* CoincidenceWindowNode = Node->GetNode("CoincidenceWindow");
+  if (CoincidenceWindowNode != 0) {
+    m_CoincidenceWindow = CoincidenceWindowNode->GetValueAsDouble();
+  }
+
   return true;
 }
 
@@ -239,6 +264,10 @@ MXmlNode* MModuleTACcut::CreateXmlConfiguration()
   new MXmlNode(Node, "TACCalFileName", m_TACCalFile);
   new MXmlNode(Node, "MinimumTAC", m_MinimumTAC);
   new MXmlNode(Node, "MaximumTAC", m_MaximumTAC);
+  new MXmlNode(Node, "ShapingOffset", m_ShapingOffset);
+  new MXmlNode(Node, "DisableTime", m_DisableTime);
+  new MXmlNode(Node, "FlagToEnDelay", m_FlagToEnDelay);
+  new MXmlNode(Node, "CoincidenceWindow", m_CoincidenceWindow);
 
   return Node;
 }

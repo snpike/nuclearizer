@@ -85,6 +85,26 @@ class MModuleTACcut : public MModule
   //! Get filename for TAC Calibration
   MString GetTACCalFileName() const {return m_TACCalFile;}
 
+  //! Set the shaping offset
+  void SetShapingOffset(double ShapingOffset) { m_ShapingOffset = ShapingOffset; }
+  //! Get the shaping offset
+  unsigned int GetShapingOffset() const { return m_ShapingOffset; }
+
+  //! Set the disable time
+  void SetDisableTime(double DisableTime) { m_DisableTime = DisableTime; }
+  //! Get the disable time
+  unsigned int GetDisableTime() const { return m_DisableTime; }
+
+  //! Set the shaping flag_to_en_delay
+  void SetFlagToEnDelay(double FlagToEnDelay) { m_FlagToEnDelay = FlagToEnDelay; }
+  //! Get the shaping flag_to_en_delay
+  unsigned int GetFlagToEnDelay() const { return m_FlagToEnDelay; }
+
+  //! Set the shaping coincidence window
+  void SetCoincidenceWindow(double CoincidenceWindow) { m_CoincidenceWindow = CoincidenceWindow; }
+  //! Get the shaping coincidence window
+  unsigned int GetCoincidenceWindow() const { return m_CoincidenceWindow; }
+
   //! Load the TAC calibration file
   bool LoadTACCalFile(MString FName);
 
@@ -109,6 +129,7 @@ class MModuleTACcut : public MModule
 
 // declare min and max TAC variables here
 unsigned int m_MinimumTAC, m_MaximumTAC;
+double m_ShapingOffset, m_DisableTime, m_FlagToEnDelay, m_CoincidenceWindow;
 MString m_TACCalFile;
 unordered_map<int, unordered_map<int, vector<double>>> m_HVTACCal;
 unordered_map<int, unordered_map<int, vector<double>>> m_LVTACCal;
