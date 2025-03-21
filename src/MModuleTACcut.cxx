@@ -64,7 +64,7 @@ MModuleTACcut::MModuleTACcut() : MModule()
   AddPreceedingModuleType(MAssembly::c_EventLoader);
   //AddPreceedingModuleType(MAssembly::c_DetectorEffectsEngine);
 
-  // AddPreceedingModuleType(MAssembly::c_EnergyCalibration);
+  AddPreceedingModuleType(MAssembly::c_EnergyCalibration);
   // AddPreceedingModuleType(MAssembly::c_ChargeSharingCorrection);
   // AddPreceedingModuleType(MAssembly::c_DepthCorrection);
   // AddPreceedingModuleType(MAssembly::c_StripPairing);
@@ -76,7 +76,7 @@ MModuleTACcut::MModuleTACcut() : MModule()
   // Set all modules, which can follow this module
   AddSucceedingModuleType(MAssembly::c_StripPairing);
   AddSucceedingModuleType(MAssembly::c_DepthCorrection);
-  AddSucceedingModuleType(MAssembly::c_EnergyCalibration);
+  // AddSucceedingModuleType(MAssembly::c_EnergyCalibration);
   // Set if this module has an options GUI
   // Overwrite ShowOptionsGUI() with the call to the GUI!
   m_HasOptionsGUI = true;
