@@ -137,7 +137,7 @@ void MModuleTACcut::CreateExpos()
   m_ExpoTACcut->SetTACHistogramArrangement(m_DetectorIDs);
   for (unsigned int i = 0; i < m_DetectorIDs.size(); ++i) {
     unsigned int DetID = m_DetectorIDs[i];
-    m_ExpoTACcut->SetTACHistogramParameters(DetID, 120, 0, 20000);
+    m_ExpoTACcut->SetTACHistogramParameters(DetID, 120, 0, 7000);
   }
   m_Expos.push_back(m_ExpoTACcut);
 }
