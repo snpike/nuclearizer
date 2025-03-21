@@ -149,22 +149,23 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
 {
   // Main data analysis routine, which updates the event to a new level 
 
-  // Apply cuts to the TAC values:
-  for (unsigned int i = 0; i < Event->GetNStripHits();) {
-    MStripHit* SH = Event->GetStripHit(i);
+  // // Apply cuts to the TAC values:
+  // for (unsigned int i = 0; i < Event->GetNStripHits();) {
+  //   MStripHit* SH = Event->GetStripHit(i);
 
-    if (HasExpos()==true) {
-      m_ExpoTACcut->AddTAC(SH->GetDetectorID(), SH->GetTAC());
-    }
-    // takes inputted min and max TAC values from the GUI module to make cuts 
-    if (SH->GetTAC() < m_MinimumTAC || SH->GetTAC() > m_MaximumTAC) {
-      Event->RemoveStripHit(i);
-      delete SH;
-    } else {
-      ++i;
-    }
-  }
-
+  //   if (HasExpos()==true) {
+  //     m_ExpoTACcut->AddTAC(SH->GetDetectorID(), SH->GetTiming());
+  //   }
+  //   // takes inputted min and max TAC values from the GUI module to make cuts 
+  //   if (SH->GetTAC() < m_MinimumTAC || SH->GetTAC() > m_MaximumTAC) {
+  //     Event->RemoveStripHit(i);
+  //     delete SH;
+  //   } else {
+  //     ++i;
+  //   }
+  // }
+  double TotalOffset = m_ShapingOffset + m_DisableTime + m_FlagToEnDelay;
+  double MaxTAC = -numeric_limits<double>::max();
   for (unsigned int i = 0; i < Event->GetNStripHits(); ++i) {
     MStripHit* SH = Event->GetStripHit(i);
     double TAC_timing = SH->GetTAC();
@@ -172,11 +173,28 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
     int DetID = SH->GetDetectorID();
     int StripID = SH->GetStripID();
     if (SH->IsLowVoltageStrip() == true) {
-      ns_timing = (TAC_timing*m_LVTACCal[DetID][StripID][0] + m_LVTACCal[DetID][StripID][1]);
+      ns_timing = TAC_timing*m_LVTACCal[DetID][StripID][0] + m_LVTACCal[DetID][StripID][1];
     } else {
       ns_timing = TAC_timing*m_HVTACCal[DetID][StripID][0] + m_HVTACCal[DetID][StripID][1];
     }
     SH->SetTiming(ns_timing);
+    if (HasExpos()==true) {
+      m_ExpoTACcut->AddTAC(SH->GetDetectorID(), ns_timing);
+    }
+    if (ns_timing > MaxTAC) {
+      MaxTAC = ns_timing;
+    }
+  }
+
+  for (unsigned int i = 0; i < Event->GetNStripHits();) {
+    MStripHit* SH = Event->GetStripHit(i);
+    double SHTiming = SH->GetTiming();
+    if ((SHTiming < TotalOffset + m_CoincidenceWindow) && (SHTiming > TotalOffset) && (SHTiming > MaxTAC - m_CoincidenceWindow)){
+      ++i;
+    } else {
+      Event->RemoveStripHit(i);
+      delete SH;
+    }
   }
 
   Event->SetAnalysisProgress(MAssembly::c_TACcut);
