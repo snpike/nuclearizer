@@ -138,7 +138,7 @@ class MModuleDepthCalibration2024 : public MModule
   uint64_t m_ErrorSH;
   uint64_t m_ErrorNullSH;
   uint64_t m_ErrorNoE;
-  vector<MDDetector*> m_Detectors;
+  unordered_map<int, MDDetector*> m_Detectors;
   vector<unsigned int> m_DetectorIDs;
   MModuleEnergyCalibrationUniversal* m_EnergyCalibration;
   MGUIExpoDepthCalibration2024* m_ExpoDepthCalibration;

@@ -120,45 +120,49 @@ bool MModuleDepthCalibration2024::Initialize()
 
   // The detectors need to be in the same order as DetIDs.
   // ie DetID=0 should be the 0th detector in m_Detectors, DetID=1 should the 1st, etc.
-  m_Detectors = m_Geometry->GetDetectorList();
+  vector<MDDetector*> DetList = m_Geometry->GetDetectorList();
 
+  unsigned int DetID = 0;
   // Look through the Geometry and get the names and thicknesses of all the detectors.
-  for(unsigned int i = 0; i < m_Detectors.size(); ++i){
+  for(unsigned int i = 0; i < DetList.size(); ++i){
     // For now, DetID is in order of detectors, which puts contraints on how the geometry file should be written.
     // If using the card cage at UCSD, default to DetID=11.
     unsigned int DetID = i;
     if ( m_UCSDOverride ){
       DetID = 11;
     }
-    MDDetector* det = m_Detectors[i];
-    // MString det_name = (det->GetDetectorVolume())->GetNamedDetectorName(0);
-    if (det->GetNNamedDetectors() > 0){
-      // TODO: determine thickness of each detector using the geometry file
-      // cout << "Trying to get thickness from the geometry file..." << endl;
-      // cout << "step 1" << endl;
-      // MDVolume* vol = det->GetSensitiveVolume(0); 
-      // cout << "step 2" << endl;
-      // MDShapeBRIK* shape = dynamic_cast<MDShapeBRIK*>(vol->GetShape());
-      // cout << "step 3" << endl;
-      // double thickness = (shape->GetSize()).GetZ();
-      // cout << "Success, the thickness is " << thickness << " cm" << endl;
-      // m_Thicknesses[DetID] = thickness;
-      MString det_name = det->GetNamedDetectorName(0);
-      m_DetectorNames[DetID] = det_name;
-      MDStrip3D* strip = dynamic_cast<MDStrip3D*>(det);
-      m_XPitches[DetID] = strip->GetPitchX();
-      m_YPitches[DetID] = strip->GetPitchY();
-      m_NXStrips[DetID] = strip->GetNStripsX();
-      m_NYStrips[DetID] = strip->GetNStripsY();
-      cout << "Found detector " << det_name << " corresponding to DetID=" << DetID << "." << endl;
-      cout << "Number of X strips: " << m_NXStrips[DetID] << endl;
-      cout << "Number of Y strips: " << m_NYStrips[DetID] << endl;
-      cout << "X strip pitch: " << m_XPitches[DetID] << endl;
-      cout << "Y strip pitch: " << m_YPitches[DetID] << endl;
-      m_DetectorIDs.push_back(DetID);
+
+    MDDetector* det = DetList[i];
+    vector<string> DetectorNames;
+    if (det->GetTypeName() == "Strip3D") {
+      if (det->GetNSensitiveVolumes() == 1) {
+        MDVolume* vol = det->GetSensitiveVolume(0);
+        string det_name = vol->GetName().GetString();
+        if (find(DetectorNames.begin(), DetectorNames.end(), det_name) == DetectorNames.end()) {
+          DetectorNames.push_back(det_name);
+          m_Thicknesses[DetID] = 2*(det->GetStructuralSize().GetZ());
+          MDStrip3D* strip = dynamic_cast<MDStrip3D*>(det);
+          m_XPitches[DetID] = strip->GetPitchX();
+          m_YPitches[DetID] = strip->GetPitchY();
+          m_NXStrips[DetID] = strip->GetNStripsX();
+          m_NYStrips[DetID] = strip->GetNStripsY();
+          cout << "Found detector " << det_name << " corresponding to DetID=" << DetID << "." << endl;
+          cout << "Detector thickness: " << m_Thicknesses[DetID] << endl;
+          cout << "Number of X strips: " << m_NXStrips[DetID] << endl;
+          cout << "Number of Y strips: " << m_NYStrips[DetID] << endl;
+          cout << "X strip pitch: " << m_XPitches[DetID] << endl;
+          cout << "Y strip pitch: " << m_YPitches[DetID] << endl;
+          m_DetectorIDs.push_back(DetID);
+          m_Detectors[DetID] = det;
+        }
+      }
     }
   }
 
+  if (m_DetectorIDs.size() == 0) {
+    cout<<"No Strip3D detectors were found."<<endl;
+    return false; 
+  }
   MSupervisor* S = MSupervisor::GetSupervisor();
   m_EnergyCalibration = (MModuleEnergyCalibrationUniversal*) S->GetAvailableModuleByXmlTag("EnergyCalibrationUniversal");
   if (m_EnergyCalibration == nullptr) {
@@ -375,12 +379,12 @@ bool MModuleDepthCalibration2024::AnalyzeEvent(MReadOutAssembly* Event)
     LocalPosition.SetXYZ(Xpos, Ypos, Zpos);
     LocalOrigin.SetXYZ(0.0,0.0,0.0);
     // cout << m_DetectorNames[DetID] << endl;
-    GlobalPosition = m_Geometry->GetGlobalPosition(LocalPosition, m_DetectorNames[DetID]);
+    GlobalPosition = m_Detectors[DetID]->GetSensitiveVolume(0)->GetPositionInWorldVolume(LocalPosition);
     // cout << "Found the GlobalPosition" << endl;
 
     // Make sure XYZ resolution are correctly mapped to the global coord system.
     PositionResolution.SetXYZ(Xsigma, Ysigma, Zsigma);
-    GlobalResolution = (m_Geometry->GetGlobalPosition(PositionResolution, m_DetectorNames[DetID]) - m_Geometry->GetGlobalPosition(LocalOrigin, m_DetectorNames[DetID])).Abs();
+    GlobalResolution = ((m_Detectors[DetID]->GetSensitiveVolume(0)->GetPositionInWorldVolume(PositionResolution)) - (m_Detectors[DetID]->GetSensitiveVolume(0)->GetPositionInWorldVolume(LocalOrigin))).Abs();
     
     // cout << "Set the PositionResolution vector" << endl;
 
