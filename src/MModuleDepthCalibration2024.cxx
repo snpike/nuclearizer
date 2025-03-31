@@ -147,7 +147,11 @@ bool MModuleDepthCalibration2024::Initialize()
           cout << "Y strip pitch: " << m_YPitches[DetID] << endl;
           m_DetectorIDs.push_back(DetID);
           m_Detectors[DetID] = det;
+        } else {
+          cout<<"ERROR in MModuleDepthCalibration2024::Initialize: Found a duplicate detector: "<<det_name<<endl;
         }
+      } else {
+        cout<<"ERROR in MModuleDepthCalibration2024::Initialize: Found a Strip3D detector with "<<det->GetNSensitiveVolumes()<<" Sensitive Volumes."<<endl;
       }
     }
   }
@@ -157,10 +161,10 @@ bool MModuleDepthCalibration2024::Initialize()
     return false; 
   }
 
-  if( LoadCoeffsFile(m_CoeffsFile) == false ){
+  if (LoadCoeffsFile(m_CoeffsFile) == false) {
     return false;
   }
-  if( LoadSplinesFile(m_SplinesFile) == false ){
+  if (LoadSplinesFile(m_SplinesFile) == false) {
     return false;
   }
 
@@ -718,6 +722,7 @@ bool MModuleDepthCalibration2024::AddDepthCTD(vector<double> depthvec, vector<ve
   if (fabs((maxdepth-mindepth) - m_Thicknesses[DetID]) > 0.0001) {
     cout<<"MModuleDepthCalibration2024::AddDepthCTD: Warning, the thickness of detector "<<DetID<<" listed in the geometry file does not match the depth-CTD file."<<endl;
     cout<<"Geometry file gives "<<m_Thicknesses[DetID]<<"cm, while the depth-CTD file gives "<<(maxdepth-mindepth)<<"cm."<<endl;
+    return false;
   }
   
   //Now make sure the values for the depth start with 0.0.
