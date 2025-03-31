@@ -122,7 +122,6 @@ class MModuleDepthCalibration2024 : public MModule
   double m_Coeffs_Energy;
   MString m_CoeffsFile;
   MString m_SplinesFile;
-  unordered_map<int, MString> m_DetectorNames;
   unordered_map<int, double> m_Thicknesses;
   unordered_map<int, int> m_NXStrips;
   unordered_map<int, int> m_NYStrips;

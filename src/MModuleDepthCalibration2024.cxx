@@ -111,13 +111,6 @@ MModuleDepthCalibration2024::~MModuleDepthCalibration2024()
 bool MModuleDepthCalibration2024::Initialize()
 {
 
-  if( LoadCoeffsFile(m_CoeffsFile) == false ){
-    return false;
-  }
-  if( LoadSplinesFile(m_SplinesFile) == false ){
-    return false;
-  }
-
   // The detectors need to be in the same order as DetIDs.
   // ie DetID=0 should be the 0th detector in m_Detectors, DetID=1 should the 1st, etc.
   vector<MDDetector*> DetList = m_Geometry->GetDetectorList();
@@ -163,6 +156,14 @@ bool MModuleDepthCalibration2024::Initialize()
     cout<<"No Strip3D detectors were found."<<endl;
     return false; 
   }
+
+  if( LoadCoeffsFile(m_CoeffsFile) == false ){
+    return false;
+  }
+  if( LoadSplinesFile(m_SplinesFile) == false ){
+    return false;
+  }
+
   MSupervisor* S = MSupervisor::GetSupervisor();
   m_EnergyCalibration = (MModuleEnergyCalibrationUniversal*) S->GetAvailableModuleByXmlTag("EnergyCalibrationUniversal");
   if (m_EnergyCalibration == nullptr) {
@@ -714,8 +715,10 @@ bool MModuleDepthCalibration2024::AddDepthCTD(vector<double> depthvec, vector<ve
 
   double maxdepth = * std::max_element(depthvec.begin(), depthvec.end());
   double mindepth = * std::min_element(depthvec.begin(), depthvec.end());
-  m_Thicknesses[DetID] = maxdepth-mindepth;
-  cout << "MModuleDepthCalibration2024::AddDepthCTD: The thickness of detector " << DetID << " is " << m_Thicknesses[DetID] << endl;
+  if (fabs((maxdepth-mindepth) - m_Thicknesses[DetID]) > 0.0001) {
+    cout<<"MModuleDepthCalibration2024::AddDepthCTD: Warning, the thickness of detector "<<DetID<<" listed in the geometry file does not match the depth-CTD file."<<endl;
+    cout<<"Geometry file gives "<<m_Thicknesses[DetID]<<"cm, while the depth-CTD file gives "<<(maxdepth-mindepth)<<"cm."<<endl;
+  }
   
   //Now make sure the values for the depth start with 0.0.
   if( mindepth != 0.0){
