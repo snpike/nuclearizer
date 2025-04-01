@@ -710,8 +710,8 @@ bool MModuleDepthCalibration2024::AddDepthCTD(vector<double> depthvec, vector<ve
 
   // Check to make sure things look right.
   // First check that the CTDs all have the right length.
-  for( unsigned int i = 0; i < ctdarr.size(); ++i ){
-    if( (ctdarr[i].size() != depthvec.size()) && (ctdarr[i].size() > 0) ){
+  for (unsigned int i = 0; i < ctdarr.size(); ++i) {
+    if ((ctdarr[i].size() != depthvec.size()) && (ctdarr[i].size() > 0)) {
       cout << "MModuleDepthCalibration2024::AddDepthCTD: The number of values in the CTD list is not equal to the number of depth values." << endl;
       return false;
     }
@@ -726,7 +726,7 @@ bool MModuleDepthCalibration2024::AddDepthCTD(vector<double> depthvec, vector<ve
   }
   
   //Now make sure the values for the depth start with 0.0.
-  if( mindepth != 0.0){
+  if (mindepth != 0.0) {
       cout << "MModuleDepthCalibration2024::AddDepthCTD: The minimum depth is not zero. Editing the depth vector." << endl;
       for( unsigned int i = 0; i < depthvec.size(); ++i ){
         depthvec[i] -= mindepth;
