@@ -161,10 +161,12 @@ bool MModuleDepthCalibration2024::Initialize()
     return false; 
   }
 
-  if (LoadCoeffsFile(m_CoeffsFile) == false) {
+  m_CoeffsFileIsLoaded = LoadCoeffsFile(m_CoeffsFile);
+  if (m_CoeffsFileIsLoaded == false) {
     return false;
   }
-  if (LoadSplinesFile(m_SplinesFile) == false) {
+  m_SplinesFileIsLoaded = LoadSplinesFile(m_SplinesFile);
+  if (m_SplinesFileIsLoaded == false) {
     return false;
   }
 
@@ -459,7 +461,7 @@ bool MModuleDepthCalibration2024::LoadCoeffsFile(MString FName)
   // Pixel code (10000*det + 100*Xchannel + Ychannel), Stretch, Offset, Timing/CTD noise, Chi2 for the CTD fit (for diagnostics mainly)
   MFile F;
   if( F.Open(FName) == false ){
-    cout << "MModuleDepthCalibration2024: failed to open coefficients file..." << endl;
+    cout << "ERROR in MModuleDepthCalibration2024::LoadCoeffsFile: failed to open coefficients file." << endl;
     return false;
   } else {
     MString Line;
@@ -486,8 +488,6 @@ bool MModuleDepthCalibration2024::LoadCoeffsFile(MString FName)
     }
     F.Close();
   }
-
-  m_CoeffsFileIsLoaded = true;
 
   return true;
 
@@ -531,6 +531,7 @@ bool MModuleDepthCalibration2024::LoadSplinesFile(MString FName)
   // '' '' ''
   MFile F; 
   if( F.Open(FName) == false ){
+    cout << "ERROR in MModuleDepthCalibration2024::LoadSplinesFile: failed to open splines file." << endl;
     return false;
   }
   // vector<double> depthvec, ctdvec, anovec, catvec;
@@ -540,6 +541,7 @@ bool MModuleDepthCalibration2024::LoadSplinesFile(MString FName)
     vector<double> temp_vec;
     ctdarr.push_back(temp_vec);
   }
+  bool Result = true;
   MString line;
   int DetID, NewDetID;
   while( F.ReadLine(line) ){
@@ -549,7 +551,7 @@ bool MModuleDepthCalibration2024::LoadSplinesFile(MString FName)
         vector<MString> tokens = line.Tokenize(" ");
         NewDetID = tokens[1].ToInt();
         if( depthvec.size() > 0 ) {
-          AddDepthCTD(depthvec, ctdarr, DetID, m_DepthGrid, m_CTDMap);        
+          Result &= AddDepthCTD(depthvec, ctdarr, DetID, m_DepthGrid, m_CTDMap);        
         }
         depthvec.clear(); ctdarr.clear(); 
         for( unsigned int i=0; i < 5; ++i ){
@@ -574,11 +576,10 @@ bool MModuleDepthCalibration2024::LoadSplinesFile(MString FName)
   }
   //make last spline
   if( depthvec.size() > 0 ){
-    AddDepthCTD(depthvec, ctdarr, DetID, m_DepthGrid, m_CTDMap);
+    Result &= AddDepthCTD(depthvec, ctdarr, DetID, m_DepthGrid, m_CTDMap);
   }
 
-  m_SplinesFileIsLoaded = true;
-  return true;
+  return Result;
 
 }
 
@@ -712,7 +713,7 @@ bool MModuleDepthCalibration2024::AddDepthCTD(vector<double> depthvec, vector<ve
   // First check that the CTDs all have the right length.
   for (unsigned int i = 0; i < ctdarr.size(); ++i) {
     if ((ctdarr[i].size() != depthvec.size()) && (ctdarr[i].size() > 0)) {
-      cout << "MModuleDepthCalibration2024::AddDepthCTD: The number of values in the CTD list is not equal to the number of depth values." << endl;
+      cout<<"ERROR in MModuleDepthCalibration2024::AddDepthCTD: The number of values in the CTD list is not equal to the number of depth values."<<endl;
       return false;
     }
   }
@@ -720,14 +721,14 @@ bool MModuleDepthCalibration2024::AddDepthCTD(vector<double> depthvec, vector<ve
   double maxdepth = * std::max_element(depthvec.begin(), depthvec.end());
   double mindepth = * std::min_element(depthvec.begin(), depthvec.end());
   if (fabs((maxdepth-mindepth) - m_Thicknesses[DetID]) > 0.0001) {
-    cout<<"MModuleDepthCalibration2024::AddDepthCTD: Warning, the thickness of detector "<<DetID<<" listed in the geometry file does not match the depth-CTD file."<<endl;
+    cout<<"ERROR in MModuleDepthCalibration2024::AddDepthCTD: The thickness of detector "<<DetID<<" listed in the geometry file does not match the depth-CTD file."<<endl;
     cout<<"Geometry file gives "<<m_Thicknesses[DetID]<<"cm, while the depth-CTD file gives "<<(maxdepth-mindepth)<<"cm."<<endl;
     return false;
   }
   
   //Now make sure the values for the depth start with 0.0.
   if (mindepth != 0.0) {
-      cout << "MModuleDepthCalibration2024::AddDepthCTD: The minimum depth is not zero. Editing the depth vector." << endl;
+      cout<<"MModuleDepthCalibration2024::AddDepthCTD: The minimum depth is not zero. Editing the depth vector."<<endl;
       for( unsigned int i = 0; i < depthvec.size(); ++i ){
         depthvec[i] -= mindepth;
       }
