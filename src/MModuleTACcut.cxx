@@ -83,10 +83,8 @@ MModuleTACcut::MModuleTACcut() : MModule()
   // Can we use multiple instances of this class
   m_AllowMultipleInstances = false;
 
-  // m_ShapingOffset = 2255;
   m_DisableTime = 1396;
   m_FlagToEnDelay = 104;
-  // m_CoincidenceWindow = 500;
 }
 
 
