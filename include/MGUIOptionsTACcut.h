@@ -72,20 +72,18 @@ class MGUIOptionsTACcut : public MGUIOptions
   //! The total TAC selection
   MGUIEMinMaxEntry* m_TAC;
 
-  //! The shaping offset: measured time between test pulse and pulse peak
-  MGUIEEntry* m_ShapingOffset;
-
   //! FPGA setting of time between FLAG rising and ENABLE falling
   MGUIEEntry* m_DisableTime;
 
   //! internal FPGA delay between FLAG rising and FPGA reacting
   MGUIEEntry* m_FlagToEnDelay;
 
-  //! Coincidence window after strip hit with largest TAC (first strip hit)
-  MGUIEEntry* m_CoincidenceWindow;
-
   //! Select TAC Calibration file to load, converts readout timing to nanoseconds
   MGUIEFileSelector* m_TACCalFileSelector;
+
+  //! Select TAC Cut file to load, which specifies the parameters for removing strip hits
+  MGUIEFileSelector* m_TACCutFileSelector;
+
 	
   // private members:
  private:
