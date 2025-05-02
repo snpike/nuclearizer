@@ -162,9 +162,6 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
       ns_timing = TAC_timing*m_HVTACCal[DetID][StripID][0] + m_HVTACCal[DetID][StripID][1];
     }
     SH->SetTiming(ns_timing);
-    if (HasExpos()==true) {
-      m_ExpoTACcut->AddTAC(SH->GetDetectorID(), ns_timing);
-    }
     if (ns_timing > MaxTAC) {
       MaxTAC = ns_timing;
     }
@@ -186,6 +183,9 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
     }
     double TotalOffset = ShapingOffset + m_DisableTime + m_FlagToEnDelay;
     if ((SHTiming < TotalOffset + CoincidenceWindow) && (SHTiming > TotalOffset) && (SHTiming > MaxTAC - CoincidenceWindow)){
+      if (HasExpos()==true) {
+        m_ExpoTACcut->AddTAC(DetID, SHTiming);
+      }
       ++i;
     } else {
       Event->RemoveStripHit(i);
