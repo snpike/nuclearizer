@@ -91,6 +91,8 @@ MModuleDepthCalibration2024::MModuleDepthCalibration2024() : MModule()
   m_Error5 = 0;
   m_Error6 = 0;
   m_ErrorSH = 0;
+  m_ErrorNullSH=0;
+  m_ErrorNoE=0;
 }
 
 
@@ -109,52 +111,63 @@ MModuleDepthCalibration2024::~MModuleDepthCalibration2024()
 bool MModuleDepthCalibration2024::Initialize()
 {
 
-  if( LoadCoeffsFile(m_CoeffsFile) == false ){
-    return false;
-  }
-  if( LoadSplinesFile(m_SplinesFile) == false ){
-    return false;
-  }
-
   // The detectors need to be in the same order as DetIDs.
   // ie DetID=0 should be the 0th detector in m_Detectors, DetID=1 should the 1st, etc.
-  m_Detectors = m_Geometry->GetDetectorList();
+  vector<MDDetector*> DetList = m_Geometry->GetDetectorList();
 
+  unsigned int DetID = 0;
   // Look through the Geometry and get the names and thicknesses of all the detectors.
-  for(unsigned int i = 0; i < m_Detectors.size(); ++i){
+  for(unsigned int i = 0; i < DetList.size(); ++i){
     // For now, DetID is in order of detectors, which puts contraints on how the geometry file should be written.
     // If using the card cage at UCSD, default to DetID=11.
     unsigned int DetID = i;
     if ( m_UCSDOverride ){
       DetID = 11;
     }
-    MDDetector* det = m_Detectors[i];
-    // MString det_name = (det->GetDetectorVolume())->GetNamedDetectorName(0);
-    if (det->GetNNamedDetectors() > 0){
-      // TODO: determine thickness of each detector using the geometry file
-      // cout << "Trying to get thickness from the geometry file..." << endl;
-      // cout << "step 1" << endl;
-      // MDVolume* vol = det->GetSensitiveVolume(0); 
-      // cout << "step 2" << endl;
-      // MDShapeBRIK* shape = dynamic_cast<MDShapeBRIK*>(vol->GetShape());
-      // cout << "step 3" << endl;
-      // double thickness = (shape->GetSize()).GetZ();
-      // cout << "Success, the thickness is " << thickness << " cm" << endl;
-      // m_Thicknesses[DetID] = thickness;
-      MString det_name = det->GetNamedDetectorName(0);
-      m_DetectorNames[DetID] = det_name;
-      MDStrip3D* strip = dynamic_cast<MDStrip3D*>(det);
-      m_XPitches[DetID] = strip->GetPitchX();
-      m_YPitches[DetID] = strip->GetPitchY();
-      m_NXStrips[DetID] = strip->GetNStripsX();
-      m_NYStrips[DetID] = strip->GetNStripsY();
-      cout << "Found detector " << det_name << " corresponding to DetID=" << DetID << "." << endl;
-      cout << "Number of X strips: " << m_NXStrips[DetID] << endl;
-      cout << "Number of Y strips: " << m_NYStrips[DetID] << endl;
-      cout << "X strip pitch: " << m_XPitches[DetID] << endl;
-      cout << "Y strip pitch: " << m_YPitches[DetID] << endl;
-      m_DetectorIDs.push_back(DetID);
+
+    MDDetector* det = DetList[i];
+    vector<string> DetectorNames;
+    if (det->GetTypeName() == "Strip3D") {
+      if (det->GetNSensitiveVolumes() == 1) {
+        MDVolume* vol = det->GetSensitiveVolume(0);
+        string det_name = vol->GetName().GetString();
+        if (find(DetectorNames.begin(), DetectorNames.end(), det_name) == DetectorNames.end()) {
+          DetectorNames.push_back(det_name);
+          m_Thicknesses[DetID] = 2*(det->GetStructuralSize().GetZ());
+          MDStrip3D* strip = dynamic_cast<MDStrip3D*>(det);
+          m_XPitches[DetID] = strip->GetPitchX();
+          m_YPitches[DetID] = strip->GetPitchY();
+          m_NXStrips[DetID] = strip->GetNStripsX();
+          m_NYStrips[DetID] = strip->GetNStripsY();
+          cout << "Found detector " << det_name << " corresponding to DetID=" << DetID << "." << endl;
+          cout << "Detector thickness: " << m_Thicknesses[DetID] << endl;
+          cout << "Number of X strips: " << m_NXStrips[DetID] << endl;
+          cout << "Number of Y strips: " << m_NYStrips[DetID] << endl;
+          cout << "X strip pitch: " << m_XPitches[DetID] << endl;
+          cout << "Y strip pitch: " << m_YPitches[DetID] << endl;
+          m_DetectorIDs.push_back(DetID);
+          m_Detectors[DetID] = det;
+        } else {
+          cout<<"ERROR in MModuleDepthCalibration2024::Initialize: Found a duplicate detector: "<<det_name<<endl;
+        }
+      } else {
+        cout<<"ERROR in MModuleDepthCalibration2024::Initialize: Found a Strip3D detector with "<<det->GetNSensitiveVolumes()<<" Sensitive Volumes."<<endl;
+      }
     }
+  }
+
+  if (m_DetectorIDs.size() == 0) {
+    cout<<"No Strip3D detectors were found."<<endl;
+    return false; 
+  }
+
+  m_CoeffsFileIsLoaded = LoadCoeffsFile(m_CoeffsFile);
+  if (m_CoeffsFileIsLoaded == false) {
+    return false;
+  }
+  m_SplinesFileIsLoaded = LoadSplinesFile(m_SplinesFile);
+  if (m_SplinesFileIsLoaded == false) {
+    return false;
   }
 
   MSupervisor* S = MSupervisor::GetSupervisor();
@@ -203,30 +216,25 @@ bool MModuleDepthCalibration2024::AnalyzeEvent(MReadOutAssembly* Event)
 
     // Handle different grades differently    
     // GRADE=-1 is an error. Break from the loop and continue.
-    if ( Grade == -1 ){
+    if ( Grade < 0 ){
       H->SetNoDepth();
       Event->SetDepthCalibrationIncomplete();
-      ++m_ErrorSH;
-    }
-
-    // GRADE=5 is some complicated geometry with multiple hits on a single strip. 
-    // GRADE=4 means there are more than 2 strip hits on one or both sides.
-    else if( Grade > 3 ){
-      H->SetNoDepth();
-      Event->SetDepthCalibrationIncomplete();
-      if(Grade==4){
-        ++m_Error4;
+      if (Grade == -1) {
+        ++m_ErrorSH;
+      } else if (Grade == -2) {
+        ++m_ErrorNullSH;
+      } else if (Grade == -3) {
+        ++m_ErrorNoE;
       }
-      else if(Grade==5){
+    } else if (Grade > 4) { // GRADE=5 is some complicated geometry with multiple hits on a single strip. GRADE=6 means not all strips are adjacent.
+      H->SetNoDepth();
+      Event->SetDepthCalibrationIncomplete();
+      if (Grade==5) {
         ++m_Error5;
-      }
-      else if(Grade==6){
+      } else if (Grade==6) {
         ++m_Error6;
       }
-    }
-
-    // If the Grade is 0-3, we can handle it.
-    else {
+    } else { // If the Grade is 0-4, we can handle it.
 
       MVector LocalPosition, PositionResolution, GlobalPosition, GlobalResolution, LocalOrigin;
 
@@ -366,12 +374,11 @@ bool MModuleDepthCalibration2024::AnalyzeEvent(MReadOutAssembly* Event)
 
           Zsigma =  sqrt(depth_var/prob_sum);
           Zpos = mean_depth - (m_Thicknesses[DetID]/2.0);
-          // Zpos = mean_depth;
-	  // cout << "calculated depth: " << Zpos << endl;
 
           // Add the depth to the GUI histogram.
-          m_ExpoDepthCalibration->AddDepth(DetID, Zpos);
-
+          if (Event->IsStripPairingIncomplete()==false) {
+            m_ExpoDepthCalibration->AddDepth(DetID, Zpos);
+          }
           m_NoError+=1;
         }
       }
@@ -379,12 +386,12 @@ bool MModuleDepthCalibration2024::AnalyzeEvent(MReadOutAssembly* Event)
     LocalPosition.SetXYZ(Xpos, Ypos, Zpos);
     LocalOrigin.SetXYZ(0.0,0.0,0.0);
     // cout << m_DetectorNames[DetID] << endl;
-    GlobalPosition = m_Geometry->GetGlobalPosition(LocalPosition, m_DetectorNames[DetID]);
+    GlobalPosition = m_Detectors[DetID]->GetSensitiveVolume(0)->GetPositionInWorldVolume(LocalPosition);
     // cout << "Found the GlobalPosition" << endl;
 
     // Make sure XYZ resolution are correctly mapped to the global coord system.
     PositionResolution.SetXYZ(Xsigma, Ysigma, Zsigma);
-    GlobalResolution = (m_Geometry->GetGlobalPosition(PositionResolution, m_DetectorNames[DetID]) - m_Geometry->GetGlobalPosition(LocalOrigin, m_DetectorNames[DetID])).Abs();
+    GlobalResolution = ((m_Detectors[DetID]->GetSensitiveVolume(0)->GetPositionInWorldVolume(PositionResolution)) - (m_Detectors[DetID]->GetSensitiveVolume(0)->GetPositionInWorldVolume(LocalOrigin))).Abs();
     
     // cout << "Set the PositionResolution vector" << endl;
 
@@ -454,7 +461,7 @@ bool MModuleDepthCalibration2024::LoadCoeffsFile(MString FName)
   // Pixel code (10000*det + 100*Xchannel + Ychannel), Stretch, Offset, Timing/CTD noise, Chi2 for the CTD fit (for diagnostics mainly)
   MFile F;
   if( F.Open(FName) == false ){
-    cout << "MModuleDepthCalibration2024: failed to open coefficients file..." << endl;
+    cout << "ERROR in MModuleDepthCalibration2024::LoadCoeffsFile: failed to open coefficients file." << endl;
     return false;
   } else {
     MString Line;
@@ -481,8 +488,6 @@ bool MModuleDepthCalibration2024::LoadCoeffsFile(MString FName)
     }
     F.Close();
   }
-
-  m_CoeffsFileIsLoaded = true;
 
   return true;
 
@@ -526,6 +531,7 @@ bool MModuleDepthCalibration2024::LoadSplinesFile(MString FName)
   // '' '' ''
   MFile F; 
   if( F.Open(FName) == false ){
+    cout << "ERROR in MModuleDepthCalibration2024::LoadSplinesFile: failed to open splines file." << endl;
     return false;
   }
   // vector<double> depthvec, ctdvec, anovec, catvec;
@@ -535,6 +541,7 @@ bool MModuleDepthCalibration2024::LoadSplinesFile(MString FName)
     vector<double> temp_vec;
     ctdarr.push_back(temp_vec);
   }
+  bool Result = true;
   MString line;
   int DetID, NewDetID;
   while( F.ReadLine(line) ){
@@ -544,7 +551,7 @@ bool MModuleDepthCalibration2024::LoadSplinesFile(MString FName)
         vector<MString> tokens = line.Tokenize(" ");
         NewDetID = tokens[1].ToInt();
         if( depthvec.size() > 0 ) {
-          AddDepthCTD(depthvec, ctdarr, DetID, m_DepthGrid, m_CTDMap);        
+          Result &= AddDepthCTD(depthvec, ctdarr, DetID, m_DepthGrid, m_CTDMap);        
         }
         depthvec.clear(); ctdarr.clear(); 
         for( unsigned int i=0; i < 5; ++i ){
@@ -569,11 +576,10 @@ bool MModuleDepthCalibration2024::LoadSplinesFile(MString FName)
   }
   //make last spline
   if( depthvec.size() > 0 ){
-    AddDepthCTD(depthvec, ctdarr, DetID, m_DepthGrid, m_CTDMap);
+    Result &= AddDepthCTD(depthvec, ctdarr, DetID, m_DepthGrid, m_CTDMap);
   }
 
-  m_SplinesFileIsLoaded = true;
-  return true;
+  return Result;
 
 }
 
@@ -638,7 +644,7 @@ int MModuleDepthCalibration2024::GetHitGrade(MHit* H){
   int return_value;
   // If 1 strip on each side, GRADE=0
   // This represents the center of the pixel
-  if( (PStrips.size() == 1) && (NStrips.size() == 1) ){
+  if( (PStrips.size() == 1) && (NStrips.size() == 1) || (PStrips.size() == 3) && (NStrips.size() == 3) ){
     return_value = 0;
   } 
   // If 2 hits on N side and 1 on P, GRADE=1
@@ -705,21 +711,24 @@ bool MModuleDepthCalibration2024::AddDepthCTD(vector<double> depthvec, vector<ve
 
   // Check to make sure things look right.
   // First check that the CTDs all have the right length.
-  for( unsigned int i = 0; i < ctdarr.size(); ++i ){
-    if( (ctdarr[i].size() != depthvec.size()) && (ctdarr[i].size() > 0) ){
-      cout << "MModuleDepthCalibration2024::AddDepthCTD: The number of values in the CTD list is not equal to the number of depth values." << endl;
+  for (unsigned int i = 0; i < ctdarr.size(); ++i) {
+    if ((ctdarr[i].size() != depthvec.size()) && (ctdarr[i].size() > 0)) {
+      cout<<"ERROR in MModuleDepthCalibration2024::AddDepthCTD: The number of values in the CTD list is not equal to the number of depth values."<<endl;
       return false;
     }
   }
 
   double maxdepth = * std::max_element(depthvec.begin(), depthvec.end());
   double mindepth = * std::min_element(depthvec.begin(), depthvec.end());
-  m_Thicknesses[DetID] = maxdepth-mindepth;
-  cout << "MModuleDepthCalibration2024::AddDepthCTD: The thickness of detector " << DetID << " is " << m_Thicknesses[DetID] << endl;
+  if (fabs((maxdepth-mindepth) - m_Thicknesses[DetID]) > 0.0001) {
+    cout<<"ERROR in MModuleDepthCalibration2024::AddDepthCTD: The thickness of detector "<<DetID<<" listed in the geometry file does not match the depth-CTD file."<<endl;
+    cout<<"Geometry file gives "<<m_Thicknesses[DetID]<<"cm, while the depth-CTD file gives "<<(maxdepth-mindepth)<<"cm."<<endl;
+    return false;
+  }
   
   //Now make sure the values for the depth start with 0.0.
-  if( mindepth != 0.0){
-      cout << "MModuleDepthCalibration2024::AddDepthCTD: The minimum depth is not zero. Editing the depth vector." << endl;
+  if (mindepth != 0.0) {
+      cout<<"MModuleDepthCalibration2024::AddDepthCTD: The minimum depth is not zero. Editing the depth vector."<<endl;
       for( unsigned int i = 0; i < depthvec.size(); ++i ){
         depthvec[i] -= mindepth;
       }
@@ -797,6 +806,11 @@ bool MModuleDepthCalibration2024::ReadXmlConfiguration(MXmlNode* Node)
   m_SplinesFile = SplinesFileNameNode->GetValue();
   }
 
+  MXmlNode* UCSDOverrideNode = Node->GetNode("UCSDOverride");
+  if( UCSDOverrideNode != NULL ){
+      m_UCSDOverride = (bool) UCSDOverrideNode->GetValueAsInt();
+  }
+
   return true;
 }
 
@@ -810,6 +824,7 @@ MXmlNode* MModuleDepthCalibration2024::CreateXmlConfiguration()
   MXmlNode* Node = new MXmlNode(0,m_XmlTag);
   new MXmlNode(Node, "CoeffsFileName", m_CoeffsFile);
   new MXmlNode(Node, "SplinesFileName", m_SplinesFile);
+  new MXmlNode(Node, "UCSDOverride",(unsigned int) m_UCSDOverride);  
   
   return Node;
 }
@@ -829,6 +844,8 @@ void MModuleDepthCalibration2024::Finalize()
   cout << "Number of hits with non-adjacent strip hits: " << m_Error6 << endl;
   cout << "Number of hits with too many strip hits: " << m_Error4 << endl;
   cout << "Number of hits with no strip hits on one or both sides: " << m_ErrorSH << endl;
+  cout << "Number of hits with null strip hits: " << m_ErrorNullSH << endl;
+  cout << "Number of hits 0 energy on a strip hit: " << m_ErrorNoE << endl;
   /*
   TFile* rootF = new TFile("EHist.root","recreate");
   rootF->WriteTObject( EHist );

@@ -122,7 +122,6 @@ class MModuleDepthCalibration2024 : public MModule
   double m_Coeffs_Energy;
   MString m_CoeffsFile;
   MString m_SplinesFile;
-  unordered_map<int, MString> m_DetectorNames;
   unordered_map<int, double> m_Thicknesses;
   unordered_map<int, int> m_NXStrips;
   unordered_map<int, int> m_NYStrips;
@@ -136,7 +135,9 @@ class MModuleDepthCalibration2024 : public MModule
   uint64_t m_Error5;
   uint64_t m_Error6;
   uint64_t m_ErrorSH;
-  vector<MDDetector*> m_Detectors;
+  uint64_t m_ErrorNullSH;
+  uint64_t m_ErrorNoE;
+  unordered_map<int, MDDetector*> m_Detectors;
   vector<unsigned int> m_DetectorIDs;
   MModuleEnergyCalibrationUniversal* m_EnergyCalibration;
   MGUIExpoDepthCalibration2024* m_ExpoDepthCalibration;
