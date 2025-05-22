@@ -117,7 +117,6 @@ bool MModuleDepthCalibration2024::Initialize()
   // ie DetID=0 should be the 0th detector in m_Detectors, DetID=1 should the 1st, etc.
   vector<MDDetector*> DetList = m_Geometry->GetDetectorList();
 
-  unsigned int DetID = 0;
   // Look through the Geometry and get the names and thicknesses of all the detectors.
   for(unsigned int i = 0; i < DetList.size(); ++i){
     // For now, DetID is in order of detectors, which puts contraints on how the geometry file should be written.
