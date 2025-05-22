@@ -99,6 +99,8 @@ class MModuleDepthCalibration2024 : public MModule
   vector<double> norm_pdf(vector<double> x, double mu, double sigma);
 	//! Adds a Depth-to-CTD relation
 	bool AddDepthCTD(vector<double> depthvec, vector<vector<double>> ctdarr, int DetID, unordered_map<int, vector<double>>& DepthGrid, unordered_map<int,vector<vector<double>>>& CTDMap);
+  // Calculate the Energy-weighted X and Y strip position
+  bool CalculateEnergyWeightedPosition(vector<MStripHit*> XStrips, vector<MStripHit*> YStrips, double& WeightedXStripID, double& WeightedYStripID);
   //! Determine the Grade (geometry of charge sharing) of the Hit
   int GetHitGrade(MHit* H);
   //! Load in the specified coefficients file

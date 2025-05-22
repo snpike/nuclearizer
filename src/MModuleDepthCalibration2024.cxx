@@ -265,13 +265,25 @@ bool MModuleDepthCalibration2024::AnalyzeEvent(MReadOutAssembly* Event)
       int YStripID = YSH->GetStripID();
       int pixel_code = 10000*DetID + 100*XStripID + YStripID;
 
-      // TODO: Calculate X and Y positions more rigorously using charge sharing.
+      double WeightedXStripID = 0;
+      double WeightedYStripID = 0;
+
+      bool WeightedPosResult = CalculateEnergyWeightedPosition(XStrips, YStrips, WeightedXStripID, WeightedYStripID);
+
       // Somewhat confusing notation: XStrips run parallel to X-axis, so we calculate X position with YStrips.
-      double Xpos = m_YPitches[DetID]*((m_NYStrips[DetID]/2.0) - ((double)YStripID));
-      double Ypos = m_XPitches[DetID]*((m_NXStrips[DetID]/2.0) - ((double)XStripID));
-      // cout << "X position " << Xpos << endl;
-      // cout << "Y position " << Ypos << endl;
-      double Zpos = 0.0;
+
+      double XPos = 0.0;
+      double YPos = 0.0;
+      double ZPos = 0.0;
+
+      // Try to calculate the energy-weighted strip positions. If that doesn't work, place the Hit in the middle of the dominant strips.
+      if ( WeightedPosResult == true ) {
+        XPos = m_YPitches[DetID]*((m_NYStrips[DetID]/2.0) - (WeightedYStripID));
+        YPos = m_XPitches[DetID]*((m_NXStrips[DetID]/2.0) - (WeightedXStripID));
+      } else {
+        XPos = m_YPitches[DetID]*((m_NYStrips[DetID]/2.0) - ((double)YStripID));
+        YPos = m_XPitches[DetID]*((m_NXStrips[DetID]/2.0) - ((double)XStripID));
+      }
 
       double Xsigma = m_YPitches[DetID]/sqrt(12.0);
       double Ysigma = m_XPitches[DetID]/sqrt(12.0);
@@ -373,17 +385,17 @@ bool MModuleDepthCalibration2024::AnalyzeEvent(MReadOutAssembly* Event)
           }
 
           Zsigma =  sqrt(depth_var/prob_sum);
-          Zpos = mean_depth - (m_Thicknesses[DetID]/2.0);
+          ZPos = mean_depth - (m_Thicknesses[DetID]/2.0);
 
           // Add the depth to the GUI histogram.
           if (Event->IsStripPairingIncomplete()==false) {
-            m_ExpoDepthCalibration->AddDepth(DetID, Zpos);
+            m_ExpoDepthCalibration->AddDepth(DetID, ZPos);
           }
           m_NoError+=1;
         }
       }
 
-    LocalPosition.SetXYZ(Xpos, Ypos, Zpos);
+    LocalPosition.SetXYZ(XPos, YPos, ZPos);
     LocalOrigin.SetXYZ(0.0,0.0,0.0);
     // cout << m_DetectorNames[DetID] << endl;
     GlobalPosition = m_Detectors[DetID]->GetSensitiveVolume(0)->GetPositionInWorldVolume(LocalPosition);
@@ -581,6 +593,43 @@ bool MModuleDepthCalibration2024::LoadSplinesFile(MString FName)
 
   return Result;
 
+}
+
+bool MModuleDepthCalibration2024::CalculateEnergyWeightedPosition(vector<MStripHit*> XStrips, vector<MStripHit*> YStrips, double& WeightedXStripID, double& WeightedYStripID) {
+  // Determine the weighted strip ID positions based on charge sharing.
+  WeightedXStripID = 0;
+  WeightedYStripID = 0;
+  double TotalXEnergy = 0;
+  double TotalYEnergy = 0;
+
+  // If one side or another doesn't have strips, abort.
+  if ( (XStrips.size() == 0) || (YStrips.size()==0) ) {
+    return false;
+  }
+
+  // Calculate the weighted values based on energy per strip.
+  for ( unsigned int i=0; i<XStrips.size(); ++i ) {
+    double XSHEnergy = XStrips[i]->GetEnergy();
+    int XSHID = XStrips[i]->GetStripID();
+    TotalXEnergy += XSHEnergy;
+    WeightedXStripID += XSHEnergy*XSHID;
+  }
+  for ( unsigned int i=0; i<YStrips.size(); ++i ) {
+    double YSHEnergy = YStrips[i]->GetEnergy();
+    int YSHID = YStrips[i]->GetStripID();
+    TotalYEnergy += YSHEnergy;
+    WeightedYStripID += YSHEnergy*YSHID;
+  }
+
+  // If one side or another doesn't have energy, abort.
+  if ( (TotalXEnergy == 0) || (TotalYEnergy == 0) ) {
+    return false;
+  }
+
+  WeightedXStripID /= TotalXEnergy;
+  WeightedYStripID /= TotalYEnergy;
+
+  return true;
 }
 
 int MModuleDepthCalibration2024::GetHitGrade(MHit* H){
