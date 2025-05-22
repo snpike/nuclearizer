@@ -645,7 +645,7 @@ int MModuleDepthCalibration2024::GetHitGrade(MHit* H){
   int return_value;
   // If 1 strip on each side, GRADE=0
   // This represents the center of the pixel
-  if( (PStrips.size() == 1) && (NStrips.size() == 1) || (PStrips.size() == 3) && (NStrips.size() == 3) ){
+  if( ((PStrips.size() == 1) && (NStrips.size() == 1)) || ((PStrips.size() == 3) && (NStrips.size() == 3)) ){
     return_value = 0;
   } 
   // If 2 hits on N side and 1 on P, GRADE=1
