@@ -62,7 +62,7 @@ MModuleTACcut::MModuleTACcut() : MModule()
 
   // Set all modules, which have to be done before this module
   AddPreceedingModuleType(MAssembly::c_EventLoader);
-  AddPreceedingModuleType(MAssembly::c_EnergyCalibration);
+  //AddPreceedingModuleType(MAssembly::c_EnergyCalibration);
 
   // Set all types this modules handles
   AddModuleType(MAssembly::c_TACcut);
@@ -105,19 +105,39 @@ bool MModuleTACcut::Initialize()
   // Initialize the module 
 
   if (LoadTACCalFile(m_TACCalFile) == false) {
-    cout << "TAC Calibration file could not be loaded." << endl;
+    cout<<m_XmlTag<<": TAC Calibration file could not be loaded."<<endl;
     return false;
   }
 
   if (LoadTACCutFile(m_TACCutFile) == false) {
-    cout << "TAC Calibration file could not be loaded." << endl;
+    cout<<m_XmlTag<<": TAC Calibration file could not be loaded."<<endl;
+    return false;
+  }
+
+  // Some sanity checks:
+  if (m_LVTACCal.size() == 0) {
+    cout<<m_XmlTag<<": The low voltage TAC calibration data set is empty"<<endl;
+    return false;
+  }
+  if (m_HVTACCal.size() == 0) {
+    cout<<m_XmlTag<<": The high voltage TAC calibration data set is empty"<<endl;
+    return false;
+  }
+  if (m_LVTACCut.size() == 0) {
+    cout<<m_XmlTag<<": The low voltage TAC cut data set is empty"<<endl;
+    return false;
+  }
+  if (m_HVTACCal.size() == 0) {
+    cout<<m_XmlTag<<": The high voltage TAC cut data set is empty"<<endl;
     return false;
   }
 
   return MModule::Initialize();
 }
 
+
 ////////////////////////////////////////////////////////////////////////////////
+
 
 void MModuleTACcut::CreateExpos()
 {
@@ -221,22 +241,22 @@ bool MModuleTACcut::ReadXmlConfiguration(MXmlNode* Node)
   //! Read the configuration data from an XML node
 
   MXmlNode* TACCalFileNameNode = Node->GetNode("TACCalFileName");
-  if (TACCalFileNameNode != 0) {
+  if (TACCalFileNameNode != nullptr) {
     SetTACCalFileName(TACCalFileNameNode->GetValue());
   }
 
   MXmlNode* TACCutFileNameNode = Node->GetNode("TACCutFileName");
-  if (TACCutFileNameNode != 0) {
+  if (TACCutFileNameNode != nullptr) {
     SetTACCutFileName(TACCutFileNameNode->GetValue());
   }
 
   MXmlNode* DisableTimeNode = Node->GetNode("DisableTime");
-  if (DisableTimeNode != 0) {
+  if (DisableTimeNode != nullptr) {
     m_DisableTime = DisableTimeNode->GetValueAsDouble();
   }
 
   MXmlNode* FlagToEnDelayNode = Node->GetNode("FlagToEnDelay");
-  if (FlagToEnDelayNode != 0) {
+  if (FlagToEnDelayNode != nullptr) {
     m_FlagToEnDelay = FlagToEnDelayNode->GetValueAsDouble();
   }
 
@@ -257,8 +277,13 @@ MXmlNode* MModuleTACcut::CreateXmlConfiguration()
   new MXmlNode(Node, "TACCutFileName", m_TACCutFile);
   new MXmlNode(Node, "DisableTime", m_DisableTime);
   new MXmlNode(Node, "FlagToEnDelay", m_FlagToEnDelay);
+
   return Node;
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+
 
 bool MModuleTACcut::LoadTACCalFile(MString FName)
 {
@@ -304,8 +329,11 @@ bool MModuleTACcut::LoadTACCalFile(MString FName)
   }
 
   return true;
-
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+
 
 bool MModuleTACcut::LoadTACCutFile(MString FName)
 {
@@ -353,3 +381,6 @@ bool MModuleTACcut::LoadTACCutFile(MString FName)
 }
 
 // MModuleTACcut.cxx: the end...
+////////////////////////////////////////////////////////////////////////////////
+
+
