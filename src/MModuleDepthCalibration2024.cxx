@@ -83,6 +83,8 @@ MModuleDepthCalibration2024::MModuleDepthCalibration2024() : MModule()
   m_AllowMultiThreading = true;
   m_AllowMultipleInstances = false;
 
+  m_Coeffs_Energy = 0;
+
   m_NoError = 0;
   m_Error1 = 0;
   m_Error2 = 0;
@@ -115,7 +117,6 @@ bool MModuleDepthCalibration2024::Initialize()
   // ie DetID=0 should be the 0th detector in m_Detectors, DetID=1 should the 1st, etc.
   vector<MDDetector*> DetList = m_Geometry->GetDetectorList();
 
-  unsigned int DetID = 0;
   // Look through the Geometry and get the names and thicknesses of all the detectors.
   for(unsigned int i = 0; i < DetList.size(); ++i){
     // For now, DetID is in order of detectors, which puts contraints on how the geometry file should be written.
@@ -441,7 +442,7 @@ double MModuleDepthCalibration2024::GetTimingNoiseFWHM(int pixel_code, double En
   // Should follow 1/E relation
   // TODO: Determine real energy dependence and implement it here.
   double noiseFWHM = 0.0;
-  if ( m_Coeffs_Energy != NULL ){
+  if ( m_Coeffs_Energy != 0 ){
     noiseFWHM = m_Coeffs[pixel_code][2] * m_Coeffs_Energy/Energy;
     if ( noiseFWHM < 3.0*2.355 ){
       noiseFWHM = 3.0*2.355;
@@ -644,7 +645,7 @@ int MModuleDepthCalibration2024::GetHitGrade(MHit* H){
   int return_value;
   // If 1 strip on each side, GRADE=0
   // This represents the center of the pixel
-  if( (PStrips.size() == 1) && (NStrips.size() == 1) || (PStrips.size() == 3) && (NStrips.size() == 3) ){
+  if( ((PStrips.size() == 1) && (NStrips.size() == 1)) || ((PStrips.size() == 3) && (NStrips.size() == 3)) ){
     return_value = 0;
   } 
   // If 2 hits on N side and 1 on P, GRADE=1
