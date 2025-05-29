@@ -288,7 +288,9 @@ MXmlNode* MModuleTACcut::CreateXmlConfiguration()
 bool MModuleTACcut::LoadTACCalFile(MString FName)
 {
   // Read in the TAC Calibration file, which should contain for each strip:
-  //  DetID, h or l for high or low voltage, TAC cal, TAC cal error, TAC cal offset, TAC offset error
+  //  DetID, Side (h or l for high or low voltage), TAC cal, TAC cal error, TAC cal offset, TAC offset error
+  // OR:
+  // ReadOutID, Detector, Side, Strip, TAC cal, TAC cal error, TAC offset, TAC offset error
   MFile F;
   if (F.Open(FName) == false) {
     cout << "MModuleTACcut: failed to open TAC Calibration file." << endl;
@@ -298,28 +300,29 @@ bool MModuleTACcut::LoadTACCalFile(MString FName)
     while (F.ReadLine(Line)) {
       if (!Line.BeginsWith("#")) {
         std::vector<MString> Tokens = Line.Tokenize(",");
-        if (Tokens.size() == 7) {
-          int DetID = Tokens[0].ToInt();
-          int StripID = Tokens[2].ToInt();
-          double taccal = Tokens[3].ToDouble();
-          double taccal_err = Tokens[4].ToDouble();
-          double offset = Tokens[5].ToDouble();
-          double offset_err = Tokens[6].ToDouble();
-          vector<double> cal_vals;
-          cal_vals.push_back(taccal); cal_vals.push_back(offset); cal_vals.push_back(taccal_err); cal_vals.push_back(offset_err);
+        if ((Tokens.size() == 7) || (Tokens.size() == 8)) {
+          int IndexOffset = Tokens.size() % 7;
+          int DetID = Tokens[0+IndexOffset].ToInt();
+          int StripID = Tokens[2+IndexOffset].ToInt();
+          double TACCal = Tokens[3+IndexOffset].ToDouble();
+          double TACCalError = Tokens[4+IndexOffset].ToDouble();
+          double Offset = Tokens[5+IndexOffset].ToDouble();
+          double OffsetError = Tokens[6+IndexOffset].ToDouble();
+          vector<double> CalValues;
+          CalValues.push_back(TACCal); CalValues.push_back(Offset); CalValues.push_back(TACCalError); CalValues.push_back(OffsetError);
           
           if (find(m_DetectorIDs.begin(), m_DetectorIDs.end(), DetID) == m_DetectorIDs.end()) {
-            unordered_map<int, vector<double>> temp_map_HV;
-            m_HVTACCal[DetID] = temp_map_HV;
-            unordered_map<int, vector<double>> temp_map_LV;
-            m_LVTACCal[DetID] = temp_map_LV;
+            unordered_map<int, vector<double>> TempMapHV;
+            m_HVTACCal[DetID] = TempMapHV;
+            unordered_map<int, vector<double>> TempMapLV;
+            m_LVTACCal[DetID] = TempMapLV;
             m_DetectorIDs.push_back(DetID);
           }
           
-          if (Tokens[1] == "l") {
-            m_LVTACCal[DetID][StripID] = cal_vals;
-          } else if (Tokens[1] == "h") {
-            m_HVTACCal[DetID][StripID] = cal_vals;
+          if (Tokens[1+IndexOffset] == "l") {
+            m_LVTACCal[DetID][StripID] = CalValues;
+          } else if (Tokens[1+IndexOffset] == "h") {
+            m_HVTACCal[DetID][StripID] = CalValues;
           }
         }
       }
@@ -357,10 +360,10 @@ bool MModuleTACcut::LoadTACCutFile(MString FName)
           CutParams.push_back(ShapingOffset); CutParams.push_back(CoincidenceWindow);
           
           if (find(m_DetectorIDs.begin(), m_DetectorIDs.end(), DetID) == m_DetectorIDs.end()) {
-            unordered_map<int, vector<double>> temp_map_HV;
-            m_HVTACCut[DetID] = temp_map_HV;
-            unordered_map<int, vector<double>> temp_map_LV;
-            m_LVTACCut[DetID] = temp_map_LV;
+            unordered_map<int, vector<double>> TempMapHV;
+            m_HVTACCut[DetID] = TempMapHV;
+            unordered_map<int, vector<double>> TempMapLV;
+            m_LVTACCut[DetID] = TempMapLV;
             m_DetectorIDs.push_back(DetID);
           }
           
