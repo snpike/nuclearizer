@@ -319,9 +319,9 @@ bool MModuleTACcut::LoadTACCalFile(MString FName)
             m_DetectorIDs.push_back(DetID);
           }
           
-          if (Tokens[1+IndexOffset] == "l") {
+          if ((Tokens[1+IndexOffset] == "l") || (Tokens[1+IndexOffset] == "0")) {
             m_LVTACCal[DetID][StripID] = CalValues;
-          } else if (Tokens[1+IndexOffset] == "h") {
+          } else if ((Tokens[1+IndexOffset] == "h") || (Tokens[1+IndexOffset] == "1")) {
             m_HVTACCal[DetID][StripID] = CalValues;
           }
         }
