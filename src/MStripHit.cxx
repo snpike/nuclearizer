@@ -86,6 +86,9 @@ void MStripHit::Clear()
   m_Timing = 0;
   m_TimingResolution = 0;
   m_PreampTemp = 0;
+  m_IsGuardRing = false;
+  m_IsNearestNeighbor = false;
+  m_HasGoodTiming = false;
   m_Origins.clear();
 }
 
@@ -100,7 +103,8 @@ bool MStripHit::Parse(MString& Line, int Version)
 		int det_id, strip_id, has_triggered, timing, un_adc, adc;
 		float energy, energy_res;
 		char pos_strip;
-		sscanf(&line[3],"%d %c %d %d %d %d %d %f %f",&det_id,
+    unsigned int flags;
+		sscanf(&line[3],"%d %c %d %d %d %d %d %f %f %u",&det_id,
 			  															   &pos_strip,
 																			&strip_id,
 																			&has_triggered,
@@ -108,9 +112,10 @@ bool MStripHit::Parse(MString& Line, int Version)
 																			&un_adc,
 																			&adc,
 																			&energy,
-																			&energy_res);
+																			&energy_res,
+                                      &flags);
 		SetDetectorID(det_id);
-		pos_strip == 'p' ? IsLowVoltageStrip(true) : IsLowVoltageStrip(false);
+		pos_strip == 'l' ? IsLowVoltageStrip(true) : IsLowVoltageStrip(false);
 		SetStripID(strip_id);
 		has_triggered == 0 ? HasTriggered(false) : HasTriggered(true);
 		SetTiming((double)timing);
@@ -118,6 +123,7 @@ bool MStripHit::Parse(MString& Line, int Version)
 		SetADCUnits((double)adc);
 		SetEnergy(energy);
 		SetEnergyResolution(energy_res);
+    ParseFlags(flags);
 		return true;
 	} else {
 		return false;
@@ -173,7 +179,8 @@ bool MStripHit::StreamDat(ostream& S, int Version)
    <<m_UncorrectedADCUnits<<" "
    <<m_ADCUnits<<" "
    <<m_Energy<<" "
-   <<m_EnergyResolution<<endl;
+   <<m_EnergyResolution<<" "
+   <<MakeFlags()<<endl;
  
   return true;
 }
@@ -194,12 +201,52 @@ void MStripHit::StreamRoa(ostream& S)
    <<((m_ReadOutElement->IsLowVoltageStrip() == true) ? "l" : "h")<<" "
    <<m_ADCUnits<<" "
    <<m_TAC<<" "
-   <<m_PreampTemp<<" ";
+   <<m_PreampTemp<<" "
+   <<MakeFlags()<<" ";
   for (unsigned int i = 0; i < m_Origins.size(); ++i) {
     if (i != 0) S<<";";
     S<<m_Origins[i]; 
   }
   S<<endl;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+unsigned int MStripHit::MakeFlags()
+{
+  //! Return flags to indicate the type of strip hit
+  //! Currently, 2 bits:
+  //!   v = Is a nearest neighbor
+  //!    v = Is a guard ring
+  //! 0b11u
+
+  unsigned int Flags = 0b00u;
+  if (m_IsGuardRing == true) {
+    Flags = Flags | 0b01u;
+  }
+  if (m_IsNearestNeighbor == true) {
+    Flags = Flags | 0b10u;
+  }
+
+  return Flags;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+void MStripHit::ParseFlags(unsigned int Flags)
+{
+  //! Set internal booleans according to flag
+  //! Currently, 2 bits:
+  //!   v = Is a nearest neighbor
+  //!    v = Is a guard ring
+  //! 0b11u
+
+  IsGuardRing(Flags & 0b01u);
+  IsNearestNeighbor(Flags & 0b10u);
 }
 
 

@@ -130,9 +130,27 @@ class MStripHit
   void AddOrigins(vector<int> Origins);
   //! Get the origins from the simulation
   vector<int> GetOrigins() const { return m_Origins; }
+
+  //! Set the Guard Ring flag
+  void IsGuardRing(bool GuardRing) { m_IsGuardRing = GuardRing; }
+  //! Return a boolean indicating whether the strip is a Guard Ring
+  bool IsGuardRing() const { return m_IsGuardRing; }  
+  //! Set the Nearest Neighbor flag
+  void IsNearestNeighbor(bool NearestNeighbor) { m_IsNearestNeighbor = NearestNeighbor; }
+  //! Return a boolean indicating whether the strip is a Nearest Neighbor
+  bool IsNearestNeighbor() const { return m_IsNearestNeighbor; }
+
+  //! Set the Good Timing flag
+  void HasGoodTiming(bool GoodTiming) { m_HasGoodTiming = GoodTiming; }
+  //! Return a boolean indicating whether the strip timing is good;
+  bool HasGoodTiming() const { return m_HasGoodTiming; }
   
   
-  
+  //! Produce an unsigned int with bitwise values representing flags
+  unsigned int MakeFlags();
+  //! Read in unsigned int with bitwise values representing flags and update boolean flags
+  void ParseFlags(unsigned int Flags);
+
   //! Parse some content from a line
   bool Parse(MString& Line, int Version = 1);
   //! Dump the content into a file stream
@@ -177,6 +195,13 @@ class MStripHit
   double m_TimingResolution;
   //! Temperature of Preamp
   double m_PreampTemp;
+
+  //! Flags denoting the type of strip hit
+  bool m_IsGuardRing;
+  bool m_IsNearestNeighbor;
+
+  //! Flag indicating whether the TAC/timing are reliable
+  bool m_HasGoodTiming;
   
   //! Origin IAs from simulations
   vector<int> m_Origins;
