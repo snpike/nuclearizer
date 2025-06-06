@@ -115,20 +115,12 @@ bool MModuleTACcut::Initialize()
   }
 
   // Some sanity checks:
-  if (m_LVTACCal.size() == 0) {
-    cout<<m_XmlTag<<": The low voltage TAC calibration data set is empty"<<endl;
+  if (m_TACCal.size() == 0) {
+    cout<<m_XmlTag<<": The TAC calibration data set is empty"<<endl;
     return false;
   }
-  if (m_HVTACCal.size() == 0) {
-    cout<<m_XmlTag<<": The high voltage TAC calibration data set is empty"<<endl;
-    return false;
-  }
-  if (m_LVTACCut.size() == 0) {
-    cout<<m_XmlTag<<": The low voltage TAC cut data set is empty"<<endl;
-    return false;
-  }
-  if (m_HVTACCal.size() == 0) {
-    cout<<m_XmlTag<<": The high voltage TAC cut data set is empty"<<endl;
+  if (m_TACCut.size() == 0) {
+    cout<<m_XmlTag<<": The TAC cut data set is empty"<<endl;
     return false;
   }
 
@@ -165,43 +157,73 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
   for (unsigned int i = 0; i < Event->GetNStripHits(); ++i) {
     MStripHit* SH = Event->GetStripHit(i);
     double TAC_timing = SH->GetTAC();
-    double ns_timing;
+    double ns_timing = 0;
     int DetID = SH->GetDetectorID();
     int StripID = SH->GetStripID();
-    if (SH->IsLowVoltageStrip() == true) {
-      ns_timing = TAC_timing*m_LVTACCal[DetID][StripID][0] + m_LVTACCal[DetID][StripID][1];
+    int Side = SH->IsLowVoltageStrip() ? 0 : 1;
+    if ((TAC_timing == 0) || (SH->IsGuardRing() == true) || (SH->IsNearestNeighbor() == true)) {
+      SH->HasGoodTiming(false);
     } else {
-      ns_timing = TAC_timing*m_HVTACCal[DetID][StripID][0] + m_HVTACCal[DetID][StripID][1];
-    }
+      if (m_TACCal.find(DetID) != m_TACCal.end()) {
+        if (m_TACCal[DetID][Side].find(StripID) != m_TACCal[DetID][Side].end()) {
+          ns_timing = TAC_timing*m_TACCal[DetID][Side][StripID][0] + m_TACCal[DetID][Side][StripID][1];
+          SH->HasGoodTiming(true);
+        } else {
+          if (Side==0) {
+            cout<<"MModuleTACcut: Unable to find LV Strip ID "<<StripID<<" in TAC calibration file"<<endl;
+          } else {
+            cout<<"MModuleTACcut: Unable to find HV Strip ID "<<StripID<<" in TAC calibration file"<<endl;
+          }
+          SH->HasGoodTiming(false);
+        }
+      } else {
+        cout<<"MModuleTACcut: Unable to find Det ID "<<StripID<<" in TAC calibration file"<<endl;
+        SH->HasGoodTiming(false);
+      }
+    } 
     SH->SetTiming(ns_timing);
-    if (ns_timing > MaxTAC) {
+    if ((SH->HasGoodTiming()==true) && (ns_timing > MaxTAC)) {
       MaxTAC = ns_timing;
     }
   }
 
   for (unsigned int i = 0; i < Event->GetNStripHits();) {
     MStripHit* SH = Event->GetStripHit(i);
-    double SHTiming = SH->GetTiming();
-    int DetID = SH->GetDetectorID();
-    int StripID = SH->GetStripID();
-    double ShapingOffset;
-    double CoincidenceWindow;
-    if (SH->IsLowVoltageStrip() == true) {
-      ShapingOffset = m_LVTACCut[DetID][StripID][0];
-      CoincidenceWindow = m_LVTACCut[DetID][StripID][1];
-    } else {
-      ShapingOffset = m_HVTACCut[DetID][StripID][0];
-      CoincidenceWindow = m_HVTACCut[DetID][StripID][1];
-    }
-    double TotalOffset = ShapingOffset + m_DisableTime + m_FlagToEnDelay;
-    if ((SHTiming < TotalOffset + CoincidenceWindow) && (SHTiming > TotalOffset) && (SHTiming > MaxTAC - CoincidenceWindow)){
-      if (HasExpos()==true) {
-        m_ExpoTACcut->AddTAC(DetID, SHTiming);
+    if ((SH->HasGoodTiming() == true) && (SH->IsNearestNeighbor()==false) && (SH->IsGuardRing()==false)) {
+      double SHTiming = SH->GetTiming();
+      int DetID = SH->GetDetectorID();
+      int StripID = SH->GetStripID();
+      int Side = SH->IsLowVoltageStrip() ? 0 : 1;
+      if (m_TACCut.find(DetID) != m_TACCut.end()) {
+        if (m_TACCut[DetID][Side].find(StripID) != m_TACCut[DetID][Side].end()) {
+          double ShapingOffset = m_TACCut[DetID][Side][StripID][0];
+          double CoincidenceWindow = m_TACCut[DetID][Side][StripID][1];
+          double TotalOffset = ShapingOffset + m_DisableTime + m_FlagToEnDelay;
+          if ((SHTiming < TotalOffset + CoincidenceWindow) && (SHTiming > TotalOffset) && (SHTiming > MaxTAC - CoincidenceWindow)){
+            if (HasExpos()==true) {
+              m_ExpoTACcut->AddTAC(DetID, SHTiming);
+            }
+            ++i;
+          } else {
+            Event->RemoveStripHit(i);
+            delete SH;
+          }
+        } else {
+          if (Side==0) {
+            cout<<"MModuleTACcut: Unable to find LV Strip ID "<<StripID<<" in TAC Cut file"<<endl;
+          } else {
+            cout<<"MModuleTACcut: Unable to find HV Strip ID "<<StripID<<" in TAC Cut file"<<endl;
+          }
+          SH->HasGoodTiming(false);
+          ++i;
+        }
+      } else {
+        cout<<"MModuleTACcut: Unable to find Det ID "<<StripID<<" in TAC Cut file"<<endl;
+        SH->HasGoodTiming(false);
+        ++i;
       }
-      ++i;
     } else {
-      Event->RemoveStripHit(i);
-      delete SH;
+      ++i;
     }
   }
 
@@ -311,18 +333,23 @@ bool MModuleTACcut::LoadTACCalFile(MString FName)
           vector<double> CalValues;
           CalValues.push_back(TACCal); CalValues.push_back(Offset); CalValues.push_back(TACCalError); CalValues.push_back(OffsetError);
           
-          if (find(m_DetectorIDs.begin(), m_DetectorIDs.end(), DetID) == m_DetectorIDs.end()) {
-            unordered_map<int, vector<double>> TempMapHV;
-            m_HVTACCal[DetID] = TempMapHV;
+          if (m_TACCal.find(DetID) == m_TACCal.end()) {
+            vector<unordered_map<int, vector<double>>> TempVector;
             unordered_map<int, vector<double>> TempMapLV;
-            m_LVTACCal[DetID] = TempMapLV;
+            unordered_map<int, vector<double>> TempMapHV;
+            m_TACCal[DetID] = TempVector;
+            m_TACCal[DetID].push_back(TempMapLV);
+            m_TACCal[DetID].push_back(TempMapHV);
+          }
+
+          if (find(m_DetectorIDs.begin(), m_DetectorIDs.end(), DetID) == m_DetectorIDs.end()) {
             m_DetectorIDs.push_back(DetID);
           }
           
           if ((Tokens[1+IndexOffset] == "l") || (Tokens[1+IndexOffset] == "0")) {
-            m_LVTACCal[DetID][StripID] = CalValues;
+            m_TACCal[DetID][0][StripID] = CalValues;
           } else if ((Tokens[1+IndexOffset] == "h") || (Tokens[1+IndexOffset] == "1")) {
-            m_HVTACCal[DetID][StripID] = CalValues;
+            m_TACCal[DetID][1][StripID] = CalValues;
           }
         }
       }
@@ -359,18 +386,23 @@ bool MModuleTACcut::LoadTACCutFile(MString FName)
           vector<double> CutParams;
           CutParams.push_back(ShapingOffset); CutParams.push_back(CoincidenceWindow);
           
-          if (find(m_DetectorIDs.begin(), m_DetectorIDs.end(), DetID) == m_DetectorIDs.end()) {
-            unordered_map<int, vector<double>> TempMapHV;
-            m_HVTACCut[DetID] = TempMapHV;
+          if (m_TACCut.find(DetID) == m_TACCut.end()) {
+            vector<unordered_map<int, vector<double>>> TempVector;
             unordered_map<int, vector<double>> TempMapLV;
-            m_LVTACCut[DetID] = TempMapLV;
+            unordered_map<int, vector<double>> TempMapHV;
+            m_TACCut[DetID] = TempVector;
+            m_TACCut[DetID].push_back(TempMapLV);
+            m_TACCut[DetID].push_back(TempMapHV);
+          }
+
+          if (find(m_DetectorIDs.begin(), m_DetectorIDs.end(), DetID) == m_DetectorIDs.end()) {
             m_DetectorIDs.push_back(DetID);
           }
           
           if (Tokens[1] == "l") {
-            m_LVTACCut[DetID][StripID] = CutParams;
+            m_TACCut[DetID][0][StripID] = CutParams;
           } else if (Tokens[1] == "h") {
-            m_HVTACCut[DetID][StripID] = CutParams;
+            m_TACCut[DetID][1][StripID] = CutParams;
           }
         }
       }

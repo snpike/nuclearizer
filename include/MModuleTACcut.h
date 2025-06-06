@@ -119,10 +119,10 @@ class MModuleTACcut : public MModule
 double m_DisableTime, m_FlagToEnDelay;
 MString m_TACCalFile;
 MString m_TACCutFile;
-unordered_map<int, unordered_map<int, vector<double>>> m_HVTACCal;
-unordered_map<int, unordered_map<int, vector<double>>> m_LVTACCal;
-unordered_map<int, unordered_map<int, vector<double>>> m_HVTACCut;
-unordered_map<int, unordered_map<int, vector<double>>> m_LVTACCut;
+
+//! Map DetID -> Side (LV=0, HV=1) -> Strip ID -> TAC calibration/cut parameters
+unordered_map<int, vector<unordered_map<int, vector<double>>>> m_TACCal;
+unordered_map<int, vector<unordered_map<int, vector<double>>>> m_TACCut;
 
 vector<unsigned int> m_DetectorIDs;
 
