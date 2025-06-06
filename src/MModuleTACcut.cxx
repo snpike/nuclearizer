@@ -62,7 +62,7 @@ MModuleTACcut::MModuleTACcut() : MModule()
 
   // Set all modules, which have to be done before this module
   AddPreceedingModuleType(MAssembly::c_EventLoader);
-  AddPreceedingModuleType(MAssembly::c_EnergyCalibration);
+  //AddPreceedingModuleType(MAssembly::c_EnergyCalibration);
 
   // Set all types this modules handles
   AddModuleType(MAssembly::c_TACcut);
@@ -105,19 +105,39 @@ bool MModuleTACcut::Initialize()
   // Initialize the module 
 
   if (LoadTACCalFile(m_TACCalFile) == false) {
-    cout << "TAC Calibration file could not be loaded." << endl;
+    cout<<m_XmlTag<<": TAC Calibration file could not be loaded."<<endl;
     return false;
   }
 
   if (LoadTACCutFile(m_TACCutFile) == false) {
-    cout << "TAC Calibration file could not be loaded." << endl;
+    cout<<m_XmlTag<<": TAC Calibration file could not be loaded."<<endl;
+    return false;
+  }
+
+  // Some sanity checks:
+  if (m_LVTACCal.size() == 0) {
+    cout<<m_XmlTag<<": The low voltage TAC calibration data set is empty"<<endl;
+    return false;
+  }
+  if (m_HVTACCal.size() == 0) {
+    cout<<m_XmlTag<<": The high voltage TAC calibration data set is empty"<<endl;
+    return false;
+  }
+  if (m_LVTACCut.size() == 0) {
+    cout<<m_XmlTag<<": The low voltage TAC cut data set is empty"<<endl;
+    return false;
+  }
+  if (m_HVTACCal.size() == 0) {
+    cout<<m_XmlTag<<": The high voltage TAC cut data set is empty"<<endl;
     return false;
   }
 
   return MModule::Initialize();
 }
 
+
 ////////////////////////////////////////////////////////////////////////////////
+
 
 void MModuleTACcut::CreateExpos()
 {
@@ -221,22 +241,22 @@ bool MModuleTACcut::ReadXmlConfiguration(MXmlNode* Node)
   //! Read the configuration data from an XML node
 
   MXmlNode* TACCalFileNameNode = Node->GetNode("TACCalFileName");
-  if (TACCalFileNameNode != 0) {
+  if (TACCalFileNameNode != nullptr) {
     SetTACCalFileName(TACCalFileNameNode->GetValue());
   }
 
   MXmlNode* TACCutFileNameNode = Node->GetNode("TACCutFileName");
-  if (TACCutFileNameNode != 0) {
+  if (TACCutFileNameNode != nullptr) {
     SetTACCutFileName(TACCutFileNameNode->GetValue());
   }
 
   MXmlNode* DisableTimeNode = Node->GetNode("DisableTime");
-  if (DisableTimeNode != 0) {
+  if (DisableTimeNode != nullptr) {
     m_DisableTime = DisableTimeNode->GetValueAsDouble();
   }
 
   MXmlNode* FlagToEnDelayNode = Node->GetNode("FlagToEnDelay");
-  if (FlagToEnDelayNode != 0) {
+  if (FlagToEnDelayNode != nullptr) {
     m_FlagToEnDelay = FlagToEnDelayNode->GetValueAsDouble();
   }
 
@@ -257,13 +277,20 @@ MXmlNode* MModuleTACcut::CreateXmlConfiguration()
   new MXmlNode(Node, "TACCutFileName", m_TACCutFile);
   new MXmlNode(Node, "DisableTime", m_DisableTime);
   new MXmlNode(Node, "FlagToEnDelay", m_FlagToEnDelay);
+
   return Node;
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+
 
 bool MModuleTACcut::LoadTACCalFile(MString FName)
 {
   // Read in the TAC Calibration file, which should contain for each strip:
-  //  DetID, h or l for high or low voltage, TAC cal, TAC cal error, TAC cal offset, TAC offset error
+  //  DetID, Side (h or l for high or low voltage), TAC cal, TAC cal error, TAC cal offset, TAC offset error
+  // OR:
+  // ReadOutID, Detector, Side, Strip, TAC cal, TAC cal error, TAC offset, TAC offset error
   MFile F;
   if (F.Open(FName) == false) {
     cout << "MModuleTACcut: failed to open TAC Calibration file." << endl;
@@ -273,28 +300,29 @@ bool MModuleTACcut::LoadTACCalFile(MString FName)
     while (F.ReadLine(Line)) {
       if (!Line.BeginsWith("#")) {
         std::vector<MString> Tokens = Line.Tokenize(",");
-        if (Tokens.size() == 7) {
-          int DetID = Tokens[0].ToInt();
-          int StripID = Tokens[2].ToInt();
-          double taccal = Tokens[3].ToDouble();
-          double taccal_err = Tokens[4].ToDouble();
-          double offset = Tokens[5].ToDouble();
-          double offset_err = Tokens[6].ToDouble();
-          vector<double> cal_vals;
-          cal_vals.push_back(taccal); cal_vals.push_back(offset); cal_vals.push_back(taccal_err); cal_vals.push_back(offset_err);
+        if ((Tokens.size() == 7) || (Tokens.size() == 8)) {
+          int IndexOffset = Tokens.size() % 7;
+          int DetID = Tokens[0+IndexOffset].ToInt();
+          int StripID = Tokens[2+IndexOffset].ToInt();
+          double TACCal = Tokens[3+IndexOffset].ToDouble();
+          double TACCalError = Tokens[4+IndexOffset].ToDouble();
+          double Offset = Tokens[5+IndexOffset].ToDouble();
+          double OffsetError = Tokens[6+IndexOffset].ToDouble();
+          vector<double> CalValues;
+          CalValues.push_back(TACCal); CalValues.push_back(Offset); CalValues.push_back(TACCalError); CalValues.push_back(OffsetError);
           
           if (find(m_DetectorIDs.begin(), m_DetectorIDs.end(), DetID) == m_DetectorIDs.end()) {
-            unordered_map<int, vector<double>> temp_map_HV;
-            m_HVTACCal[DetID] = temp_map_HV;
-            unordered_map<int, vector<double>> temp_map_LV;
-            m_LVTACCal[DetID] = temp_map_LV;
+            unordered_map<int, vector<double>> TempMapHV;
+            m_HVTACCal[DetID] = TempMapHV;
+            unordered_map<int, vector<double>> TempMapLV;
+            m_LVTACCal[DetID] = TempMapLV;
             m_DetectorIDs.push_back(DetID);
           }
           
-          if (Tokens[1] == "l") {
-            m_LVTACCal[DetID][StripID] = cal_vals;
-          } else if (Tokens[1] == "h") {
-            m_HVTACCal[DetID][StripID] = cal_vals;
+          if ((Tokens[1+IndexOffset] == "l") || (Tokens[1+IndexOffset] == "0")) {
+            m_LVTACCal[DetID][StripID] = CalValues;
+          } else if ((Tokens[1+IndexOffset] == "h") || (Tokens[1+IndexOffset] == "1")) {
+            m_HVTACCal[DetID][StripID] = CalValues;
           }
         }
       }
@@ -304,8 +332,11 @@ bool MModuleTACcut::LoadTACCalFile(MString FName)
   }
 
   return true;
-
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+
 
 bool MModuleTACcut::LoadTACCutFile(MString FName)
 {
@@ -329,10 +360,10 @@ bool MModuleTACcut::LoadTACCutFile(MString FName)
           CutParams.push_back(ShapingOffset); CutParams.push_back(CoincidenceWindow);
           
           if (find(m_DetectorIDs.begin(), m_DetectorIDs.end(), DetID) == m_DetectorIDs.end()) {
-            unordered_map<int, vector<double>> temp_map_HV;
-            m_HVTACCut[DetID] = temp_map_HV;
-            unordered_map<int, vector<double>> temp_map_LV;
-            m_LVTACCut[DetID] = temp_map_LV;
+            unordered_map<int, vector<double>> TempMapHV;
+            m_HVTACCut[DetID] = TempMapHV;
+            unordered_map<int, vector<double>> TempMapLV;
+            m_LVTACCut[DetID] = TempMapLV;
             m_DetectorIDs.push_back(DetID);
           }
           
@@ -353,3 +384,6 @@ bool MModuleTACcut::LoadTACCutFile(MString FName)
 }
 
 // MModuleTACcut.cxx: the end...
+////////////////////////////////////////////////////////////////////////////////
+
+
