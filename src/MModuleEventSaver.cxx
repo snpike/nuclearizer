@@ -76,6 +76,8 @@ MModuleEventSaver::MModuleEventSaver() : MModule()
   m_Zip = false;
   m_SaveBadEvents = true;
   m_AddTimeTag = false;
+    
+  m_IncludeNearestNeighborHits = true;
   
   m_SplitFile = true;
   m_SplitFileTime.Set(60*10); // seconds
@@ -302,6 +304,27 @@ bool MModuleEventSaver::AnalyzeEvent(MReadOutAssembly* Event)
   } else {
     Choosen = &m_Out; 
   }
+    
+ // I think I need to add something here about skipping NN events (if IncludeNearestNeighbors == False)
+    
+  if (!m_IncludeNearestNeighborHits) {
+    std::cout << "Before removal, hit count: " << Event->GetNStripHits() << std::endl;
+
+    for (unsigned int i = 0; i < Event->GetNStripHits();) {
+      MStripHit* SH = Event->GetStripHit(i);
+
+      // Debug output: check if it's tagged as nearest neighbor
+      std::cout << "Hit " << i << ": IsNearestNeighbor = " << SH->IsNearestNeighbor() << std::endl;
+
+      if (SH->IsNearestNeighbor()) {
+        Event->RemoveStripHit(i);
+        delete SH;
+      } else {
+        ++i;
+      }
+    }
+    std::cout << "After removal, hit count: " << Event->GetNStripHits() << std::endl;
+  }
   
   ostringstream Out;
   if (m_Mode == c_EvtaFile) {
@@ -363,6 +386,11 @@ bool MModuleEventSaver::ReadXmlConfiguration(MXmlNode* Node)
   if (SplitFileTimeNode != 0) {
     m_SplitFileTime.Set(SplitFileTimeNode->GetValueAsInt());
   }
+    
+  MXmlNode* IncludeNearestNeighborNode = Node->GetNode("IncludeNearestNeighborHits");
+  if (IncludeNearestNeighborNode != nullptr) {
+    m_IncludeNearestNeighborHits = IncludeNearestNeighborNode->GetValueAsBoolean();
+  }
 
   return true;
 }
@@ -382,6 +410,7 @@ MXmlNode* MModuleEventSaver::CreateXmlConfiguration()
   new MXmlNode(Node, "AddTimeTag", m_AddTimeTag);
   new MXmlNode(Node, "SplitFile", m_SplitFile);
   new MXmlNode(Node, "SplitFileTime", m_SplitFileTime.GetAsSystemSeconds());
+  new MXmlNode(Node, "IncludeNearestNeighborHits", m_IncludeNearestNeighborHits ? "true" : "false");
 
   return Node;
 }

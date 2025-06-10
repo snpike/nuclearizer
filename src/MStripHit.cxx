@@ -89,6 +89,7 @@ void MStripHit::Clear()
   m_IsGuardRing = false;
   m_IsNearestNeighbor = false;
   m_HasGoodTiming = false;
+  m_HasFastTiming = false;
   m_Origins.clear();
 }
 

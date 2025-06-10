@@ -144,6 +144,11 @@ class MStripHit
   void HasGoodTiming(bool GoodTiming) { m_HasGoodTiming = GoodTiming; }
   //! Return a boolean indicating whether the strip timing is good;
   bool HasGoodTiming() const { return m_HasGoodTiming; }
+    
+  //! Set the Fast Timing flag
+  void HasFastTiming(bool FastTiming) { m_HasFastTiming = FastTiming; }
+  //! Return a boolean indicating whether the strip timing is fast;
+  bool HasFastTiming() const { return m_HasFastTiming; }
   
   
   //! Produce an unsigned int with bitwise values representing flags
@@ -202,6 +207,9 @@ class MStripHit
 
   //! Flag indicating whether the TAC/timing are reliable
   bool m_HasGoodTiming;
+    
+  //! Flag indicating whether the hit has fast timing
+  bool m_HasFastTiming;
   
   //! Origin IAs from simulations
   vector<int> m_Origins;

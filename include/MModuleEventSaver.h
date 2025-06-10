@@ -77,6 +77,12 @@ class MModuleEventSaver : public MModule
   MTime GetSplitFileTime() const { return m_SplitFileTime; }
   //! Set the time after which the file should be split
   void SetSplitFileTime(MTime SplitFileTime) { m_SplitFileTime = SplitFileTime; }
+    
+  // --------- ADDING!!! ----------
+  //! Return whether nearest neighbor hits should be included
+  bool GetIncludeNearestNeighborHits() const { return m_IncludeNearestNeighborHits; }
+  //! Set whether nearest neighbor hits should be included
+  void SetIncludeNearestNeighborHits(bool Include) { m_IncludeNearestNeighborHits = Include; }
   
   //! Set the start area of the far field simulation if there was any
   void SetStartAreaFarField(double Area) { m_StartAreaFarField = Area; } 
@@ -158,6 +164,9 @@ class MModuleEventSaver : public MModule
   bool m_SplitFile;
   //! If we split the file, this is the time in seconds after which we split
   MTime m_SplitFileTime;
+    
+  // ------- ADDING!!! -----------
+  bool m_IncludeNearestNeighborHits = true;
   
   //! Main output stream for file
   MFile m_Out;

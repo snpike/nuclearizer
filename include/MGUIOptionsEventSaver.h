@@ -85,6 +85,10 @@ class MGUIOptionsEventSaver : public MGUIOptions
   TGCheckButton* m_SplitFile;
   //! Entry field for the time after which to split the file
   MGUIEEntry* m_SplitFileTime;
+    
+  // ------- ADDING!!! -------
+  //! Checkbutton to include or exclude NN hits 
+  TGCheckButton* m_IncludeNearestNeighborHits;
 
 #ifdef ___CLING___
  public:

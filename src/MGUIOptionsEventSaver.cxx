@@ -103,7 +103,11 @@ void MGUIOptionsEventSaver::Create()
     dynamic_cast<MModuleEventSaver*>(m_Module)->GetSplitFileTime().GetAsSystemSeconds(), true, 0l);
   if (m_SplitFile->IsOn() == false) m_SplitFileTime->SetEnabled(false);
   m_OptionsFrame->AddFrame(m_SplitFileTime, SplitFileTimeLayout);
-  
+    
+  m_IncludeNearestNeighborHits = new TGCheckButton(m_OptionsFrame, "Include Nearest Neighbor Hits", 3);
+  m_IncludeNearestNeighborHits->Associate(this);
+  m_IncludeNearestNeighborHits->SetOn(dynamic_cast<MModuleEventSaver*>(m_Module)->GetIncludeNearestNeighborHits());
+  m_OptionsFrame->AddFrame(m_IncludeNearestNeighborHits, LabelLayout);
   
   PostCreate();
 }
@@ -158,7 +162,8 @@ bool MGUIOptionsEventSaver::OnApply()
   dynamic_cast<MModuleEventSaver*>(m_Module)->SetAddTimeTag(m_AddTimeTag->IsOn());
   dynamic_cast<MModuleEventSaver*>(m_Module)->SetSplitFile(m_SplitFile->IsOn());
   dynamic_cast<MModuleEventSaver*>(m_Module)->SetSplitFileTime(MTime(m_SplitFileTime->GetAsInt()));
-  
+  dynamic_cast<MModuleEventSaver*>(m_Module)->SetIncludeNearestNeighborHits(m_IncludeNearestNeighborHits->IsOn());
+
   return true;
 }
 
