@@ -161,7 +161,7 @@ class MStripHit
   //! Dump the content into a file stream
   bool StreamDat(ostream& S, int Version = 1);
   //! Stream the content in MEGAlib's roa format 
-  void StreamRoa(ostream& S);
+  void StreamRoa(ostream& S, bool WithADC = true, bool WithTAC = true, bool WithEnergy = false, bool WithTiming = false, bool WithTemperature = false, bool WithFlags = false, bool WithOrigins = false);
   
   
   // protected methods:

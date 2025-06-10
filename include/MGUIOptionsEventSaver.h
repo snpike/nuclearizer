@@ -43,6 +43,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 
+//! UI for the event saver
 class MGUIOptionsEventSaver : public MGUIOptions
 {
   // public Session:
@@ -86,9 +87,22 @@ class MGUIOptionsEventSaver : public MGUIOptions
   //! Entry field for the time after which to split the file
   MGUIEEntry* m_SplitFileTime;
     
-  // ------- ADDING!!! -------
-  //! Checkbutton to include or exclude NN hits 
-  TGCheckButton* m_IncludeNearestNeighborHits;
+  //! Checkbutton to include or exclude ADCs in the roa file
+  TGCheckButton* m_RoaWithADCs;
+  //! Checkbutton to include or exclude TACs in the roa file
+  TGCheckButton* m_RoaWithTACs;
+  //! Checkbutton to include or exclude energies in the roa file
+  TGCheckButton* m_RoaWithEnergies;
+  //! Checkbutton to include or exclude timings in the roa file
+  TGCheckButton* m_RoaWithTimings;
+  //! Checkbutton to include or exclude temperatures in the roa file
+  TGCheckButton* m_RoaWithTemperatures;
+  //! Checkbutton to include or exclude flags in the roa file
+  TGCheckButton* m_RoaWithFlags;
+  //! Checkbutton to include or exclude origins in the roa file
+  TGCheckButton* m_RoaWithOrigins;
+  //! Checkbutton to include or exclude nearest neighbor hits in the roa file
+  TGCheckButton* m_RoaWithNearestNeighbors;
 
 #ifdef ___CLING___
  public:

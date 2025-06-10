@@ -192,21 +192,41 @@ bool MStripHit::StreamDat(ostream& S, int Version)
 ////////////////////////////////////////////////////////////////////////////////
 
 
-void MStripHit::StreamRoa(ostream& S)
+void MStripHit::StreamRoa(ostream& S, bool WithADC, bool WithTAC, bool WithEnergy, bool WithTiming, bool WithTemperature, bool WithFlags, bool WithOrigins)
 {
   //! Stream the content in MEGAlib's evta format 
 
   S<<"UH " 
    <<m_ReadOutElement->GetDetectorID()<<" "
    <<m_ReadOutElement->GetStripID()<<" "
-   <<((m_ReadOutElement->IsLowVoltageStrip() == true) ? "l" : "h")<<" "
-   <<m_ADCUnits<<" "
-   <<m_TAC<<" "
-   <<m_PreampTemp<<" "
-   <<MakeFlags()<<" ";
-  for (unsigned int i = 0; i < m_Origins.size(); ++i) {
-    if (i != 0) S<<";";
-    S<<m_Origins[i]; 
+   <<((m_ReadOutElement->IsLowVoltageStrip() == true) ? "l" : "h")<<" ";
+  if (WithADC == true) {
+    S<<m_ADCUnits<<" ";
+  }
+  if (WithTAC == true) {
+    S<<m_TAC<<" ";
+  }
+  if (WithTemperature == true) {
+    S<<m_PreampTemp<<" ";
+  }
+  if (WithEnergy == true) {
+    S<<m_Energy<<" ";
+  }
+  if (WithTiming == true) {
+    S<<m_Timing<<" ";
+  }
+  if (WithFlags == true) {
+    S<<MakeFlags()<<" ";
+  }
+  if (WithOrigins == true) {
+    if (m_Origins.size() == 0) {
+      S<<"- ";
+    } else {
+      for (unsigned int i = 0; i < m_Origins.size(); ++i) {
+        if (i != 0) S<<";";
+        S<<m_Origins[i];
+      }
+    }
   }
   S<<endl;
 }

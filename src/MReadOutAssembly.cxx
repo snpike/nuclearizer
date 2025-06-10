@@ -623,7 +623,7 @@ void MReadOutAssembly::StreamEvta(ostream& S)
 ////////////////////////////////////////////////////////////////////////////////
 
 
-void MReadOutAssembly::StreamRoa(ostream& S, bool)
+void MReadOutAssembly::StreamRoa(ostream& S, bool WithADCs, bool WithTACs, bool WithEnergies, bool WithTimings, bool WithTemperatures, bool WithFlags, bool WithOrigins, bool WithNearestNeighbors)
 {
   //! Stream the content in MEGAlib's evta format 
 
@@ -632,7 +632,7 @@ void MReadOutAssembly::StreamRoa(ostream& S, bool)
   S<<"CL "<<m_Time<<endl;
   S<<"TI "<<m_EventTimeUTC<<endl;
 
-  if (m_Aspect != 0) {
+  if (m_Aspect != nullptr) {
     m_Aspect->StreamEvta(S);
   }
 
@@ -641,7 +641,10 @@ void MReadOutAssembly::StreamRoa(ostream& S, bool)
   }
 
   for (unsigned int h = 0; h < m_StripHits.size(); ++h) {
-    m_StripHits[h]->StreamRoa(S);  
+    if (WithNearestNeighbors == false && m_StripHits[h]->IsNearestNeighbor() == true) {
+      continue;
+    }
+    m_StripHits[h]->StreamRoa(S, WithADCs, WithTACs, WithEnergies, WithTimings, WithTemperatures, WithFlags);
   }
   
   // Those are the only BD's relevant for the roa format
