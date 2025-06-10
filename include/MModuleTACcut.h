@@ -124,6 +124,9 @@ MString m_TACCutFile;
 unordered_map<int, vector<unordered_map<int, vector<double>>>> m_TACCal;
 unordered_map<int, vector<unordered_map<int, vector<double>>>> m_TACCut;
 
+//! Map characters representing sides of the detectors indices to avoid mistakes
+unordered_map<char, int> m_SideToIndex;
+
 vector<unsigned int> m_DetectorIDs;
 
 MGUIExpoTACcut* m_ExpoTACcut;

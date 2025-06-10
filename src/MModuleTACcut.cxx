@@ -85,6 +85,7 @@ MModuleTACcut::MModuleTACcut() : MModule()
 
   m_DisableTime = 1396;
   m_FlagToEnDelay = 104;
+  m_SideToIndex = {{'l', 0}, {'h', 1}, {'0', 0}, {'1', 1}, {'p', 0}, {'n', 1}};
 }
 
 
@@ -160,16 +161,16 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
     double ns_timing = 0;
     int DetID = SH->GetDetectorID();
     int StripID = SH->GetStripID();
-    int Side = SH->IsLowVoltageStrip() ? 0 : 1;
+    char Side = SH->IsLowVoltageStrip() ? 'l' : 'h';
     if ((TAC_timing == 0) || (SH->IsGuardRing() == true) || (SH->IsNearestNeighbor() == true)) {
       SH->HasGoodTiming(false);
     } else {
       if (m_TACCal.find(DetID) != m_TACCal.end()) {
-        if (m_TACCal[DetID][Side].find(StripID) != m_TACCal[DetID][Side].end()) {
-          ns_timing = TAC_timing*m_TACCal[DetID][Side][StripID][0] + m_TACCal[DetID][Side][StripID][1];
+        if (m_TACCal[DetID][m_SideToIndex[Side]].find(StripID) != m_TACCal[DetID][m_SideToIndex[Side]].end()) {
+          ns_timing = TAC_timing*m_TACCal[DetID][m_SideToIndex[Side]][StripID][0] + m_TACCal[DetID][m_SideToIndex[Side]][StripID][1];
           SH->HasGoodTiming(true);
         } else {
-          if (Side==0) {
+          if (Side=='l') {
             cout<<"MModuleTACcut: Unable to find LV Strip ID "<<StripID<<" in TAC calibration file"<<endl;
           } else {
             cout<<"MModuleTACcut: Unable to find HV Strip ID "<<StripID<<" in TAC calibration file"<<endl;
@@ -193,11 +194,11 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
       double SHTiming = SH->GetTiming();
       int DetID = SH->GetDetectorID();
       int StripID = SH->GetStripID();
-      int Side = SH->IsLowVoltageStrip() ? 0 : 1;
+      char Side = SH->IsLowVoltageStrip() ? 'l' : 'h';
       if (m_TACCut.find(DetID) != m_TACCut.end()) {
-        if (m_TACCut[DetID][Side].find(StripID) != m_TACCut[DetID][Side].end()) {
-          double ShapingOffset = m_TACCut[DetID][Side][StripID][0];
-          double CoincidenceWindow = m_TACCut[DetID][Side][StripID][1];
+        if (m_TACCut[DetID][m_SideToIndex[Side]].find(StripID) != m_TACCut[DetID][m_SideToIndex[Side]].end()) {
+          double ShapingOffset = m_TACCut[DetID][m_SideToIndex[Side]][StripID][0];
+          double CoincidenceWindow = m_TACCut[DetID][m_SideToIndex[Side]][StripID][1];
           double TotalOffset = ShapingOffset + m_DisableTime + m_FlagToEnDelay;
           if ((SHTiming < TotalOffset + CoincidenceWindow) && (SHTiming > TotalOffset) && (SHTiming > MaxTAC - CoincidenceWindow)){
             if (HasExpos()==true) {
@@ -209,17 +210,15 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
             delete SH;
           }
         } else {
-          if (Side==0) {
+          if (Side=='l') {
             cout<<"MModuleTACcut: Unable to find LV Strip ID "<<StripID<<" in TAC Cut file"<<endl;
           } else {
             cout<<"MModuleTACcut: Unable to find HV Strip ID "<<StripID<<" in TAC Cut file"<<endl;
           }
-          SH->HasGoodTiming(false);
           ++i;
         }
       } else {
-        cout<<"MModuleTACcut: Unable to find Det ID "<<StripID<<" in TAC Cut file"<<endl;
-        SH->HasGoodTiming(false);
+        cout<<"MModuleTACcut: Unable to find Det ID "<<DetID<<" in TAC Cut file"<<endl;
         ++i;
       }
     } else {
@@ -325,6 +324,15 @@ bool MModuleTACcut::LoadTACCalFile(MString FName)
         if ((Tokens.size() == 7) || (Tokens.size() == 8)) {
           int IndexOffset = Tokens.size() % 7;
           int DetID = Tokens[0+IndexOffset].ToInt();
+          MString SideString = Tokens[1+IndexOffset].Trim();
+          char Side;
+          if (SideString.Length()!=1) {
+            cout<<"MModuleTACcut: Expected 1 character Side, got string: "<<SideString<<" In TAC calibration file."<<endl;
+            continue;
+          }
+          else {
+            Side = SideString[0];
+          }
           int StripID = Tokens[2+IndexOffset].ToInt();
           double TACCal = Tokens[3+IndexOffset].ToDouble();
           double TACCalError = Tokens[4+IndexOffset].ToDouble();
@@ -346,10 +354,10 @@ bool MModuleTACcut::LoadTACCalFile(MString FName)
             m_DetectorIDs.push_back(DetID);
           }
           
-          if ((Tokens[1+IndexOffset] == "l") || (Tokens[1+IndexOffset] == "0")) {
-            m_TACCal[DetID][0][StripID] = CalValues;
-          } else if ((Tokens[1+IndexOffset] == "h") || (Tokens[1+IndexOffset] == "1")) {
-            m_TACCal[DetID][1][StripID] = CalValues;
+          if (m_SideToIndex.find(Side) != m_SideToIndex.end()) {
+            m_TACCal[DetID][m_SideToIndex[Side]][StripID] = CalValues;
+          } else {
+            cout<<"MModuleTACcut: Unable to identify Side "<<Side<<" In TAC calibration file."<<endl;
           }
         }
       }
@@ -380,6 +388,15 @@ bool MModuleTACcut::LoadTACCutFile(MString FName)
         std::vector<MString> Tokens = Line.Tokenize(",");
         if (Tokens.size() == 5) {
           int DetID = Tokens[0].ToInt();
+          MString SideString = Tokens[1].Trim();
+          char Side;
+          if (SideString.Length()!=1) {
+            cout<<"MModuleTACcut: Expected 1 character Side, got string: "<<SideString<<" In TAC cut file."<<endl;
+            continue;
+          }
+          else {
+            Side = SideString[0];
+          }
           int StripID = Tokens[2].ToInt();
           double ShapingOffset = Tokens[3].ToDouble();
           double CoincidenceWindow = Tokens[4].ToDouble();
@@ -399,10 +416,10 @@ bool MModuleTACcut::LoadTACCutFile(MString FName)
             m_DetectorIDs.push_back(DetID);
           }
           
-          if (Tokens[1] == "l") {
-            m_TACCut[DetID][0][StripID] = CutParams;
-          } else if (Tokens[1] == "h") {
-            m_TACCut[DetID][1][StripID] = CutParams;
+          if (m_SideToIndex.find(Side) != m_SideToIndex.end()) {
+            m_TACCut[DetID][m_SideToIndex[Side]][StripID] = CalValues;
+          } else {
+            cout<<"MModuleTACcut: Unable to identify Side "<<Side<<" In TAC calibration file."<<endl;
           }
         }
       }
