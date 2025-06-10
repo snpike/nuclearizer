@@ -640,11 +640,16 @@ void MReadOutAssembly::StreamRoa(ostream& S, bool WithADCs, bool WithTACs, bool 
     S<<IA.ToSimString()<<endl; 
   }
 
+  unsigned int Counter = 0;
   for (unsigned int h = 0; h < m_StripHits.size(); ++h) {
     if (WithNearestNeighbors == false && m_StripHits[h]->IsNearestNeighbor() == true) {
       continue;
     }
     m_StripHits[h]->StreamRoa(S, WithADCs, WithTACs, WithEnergies, WithTimings, WithTemperatures, WithFlags);
+    ++Counter;
+  }
+  if (Counter == 0) {
+    S<<"BD No strip hits"<<endl;;
   }
   
   // Those are the only BD's relevant for the roa format

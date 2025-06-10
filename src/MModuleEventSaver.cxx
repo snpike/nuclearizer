@@ -181,32 +181,39 @@ bool MModuleEventSaver::Initialize()
     Header<<"UF doublesidedstrip ";
     bool IsFirst = true;
     if (m_RoaWithADCs == true) {
-      if (IsFirst) Header<<"_";
+      if (IsFirst == false) Header<<"_";
       Header<<"adc";
+      IsFirst = false;
     }
     if (m_RoaWithTACs == true) {
-      if (IsFirst) Header<<"_";
+      if (IsFirst == false) Header<<"_";
       Header<<"tac";
+      IsFirst = false;
     }
     if (m_RoaWithEnergies == true) {
-      if (IsFirst) Header<<"_";
+      if (IsFirst == false) Header<<"_";
       Header<<"energy";
+      IsFirst = false;
     }
     if (m_RoaWithTimings == true) {
-      if (IsFirst) Header<<"_";
+      if (IsFirst == false) Header<<"_";
       Header<<"timing";
+      IsFirst = false;
     }
     if (m_RoaWithTemperatures == true) {
-      if (IsFirst) Header<<"_";
+      if (IsFirst == false) Header<<"_";
       Header<<"temperature";
+      IsFirst = false;
     }
     if (m_RoaWithFlags == true) {
-      if (IsFirst) Header<<"_";
+      if (IsFirst == false) Header<<"_";
       Header<<"flags";
+      IsFirst = false;
     }
     if (m_RoaWithOrigins == true) {
-      if (IsFirst) Header<<"_";
+      if (IsFirst == false) Header<<"_";
       Header<<"origins";
+      IsFirst = false;
     }
     Header<<endl;
   } else {

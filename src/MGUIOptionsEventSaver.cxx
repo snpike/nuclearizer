@@ -108,7 +108,7 @@ void MGUIOptionsEventSaver::Create()
   TGLabel* ROAOptionsLabel = new TGLabel(m_OptionsFrame, "Special options for roa files:");
   m_OptionsFrame->AddFrame(ROAOptionsLabel, LabelLayout);
 
-  m_RoaWithADCs = new TGCheckButton(m_OptionsFrame, "Include ADCs (only this option is needed for melinator)", 3);
+  m_RoaWithADCs = new TGCheckButton(m_OptionsFrame, "Include ADCs", 3);
   m_RoaWithADCs->Associate(this);
   m_RoaWithADCs->SetOn(dynamic_cast<MModuleEventSaver*>(m_Module)->GetRoaWithADCs());
   m_OptionsFrame->AddFrame(m_RoaWithADCs, RoaCheckButtonLayout);
