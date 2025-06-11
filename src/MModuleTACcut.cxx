@@ -159,21 +159,22 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
 
     int DetID = SH->GetDetectorID();
     int StripID = SH->GetStripID();
+    char Side = SH->IsLowVoltageStrip() ? 'l' : 'h';
 
-    if (DetID >= m_LVTACCal.size()) {
-      cout<<m_XmlTag<<": Error: DetID "<<DetID<<" is not in LVTACCal (max det ID: "<<m_LVTACCal.size()-1<<") - skipping event"<<endl;
+    if (DetID >= m_TACCal.size()) {
+      cout<<m_XmlTag<<": Error: DetID "<<DetID<<" is not in TACCal (max det ID: "<<m_TACCal.size()-1<<") - skipping event"<<endl;
       return false;
     }
-    if (StripID >= m_LVTACCal[DetID].size()) {
-      cout<<m_XmlTag<<": Error: StripID "<<StripID<<" is not in LVTACCal (max strip ID: "<<m_LVTACCal[DetID].size()-1<<") - skipping event"<<endl;
+    if (StripID >= m_TACCal[DetID][m_SideToIndex[Side]].size()) {
+      cout<<m_XmlTag<<": Error: StripID "<<StripID<<" on side "<<Side<<" is not in TACCal (max strip ID: "<<m_TACCal[DetID].size()-1<<") - skipping event"<<endl;
       return false;
     }
-    if (DetID >= m_HVTACCal.size()) {
-      cout<<m_XmlTag<<": Error: DetID "<<DetID<<" is not in HVTACCal (max det ID: "<<m_HVTACCal.size()-1<<") - skipping event"<<endl;
+    if (DetID >= m_TACCut.size()) {
+      cout<<m_XmlTag<<": Error: DetID "<<DetID<<" is not in TACCut (max det ID: "<<m_TACCut.size()-1<<") - skipping event"<<endl;
       return false;
     }
-    if (StripID >= m_HVTACCal[DetID].size()) {
-      cout<<m_XmlTag<<": Error: StripID "<<StripID<<" is not in HVTACCal (max strip ID: "<<m_HVTACCal[DetID].size()-1<<") - skipping event"<<endl;
+    if (StripID >= m_TACCut[DetID][m_SideToIndex[Side]].size()) {
+      cout<<m_XmlTag<<": Error: StripID "<<StripID<<" on side "<<Side<<" is not in TACCut (max strip ID: "<<m_TACCut[DetID].size()-1<<") - skipping event"<<endl;
       return false;
     }
   }
@@ -186,67 +187,48 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
     int DetID = SH->GetDetectorID();
     int StripID = SH->GetStripID();
     char Side = SH->IsLowVoltageStrip() ? 'l' : 'h';
-    if ((TAC_timing == 0) || (SH->IsGuardRing() == true) || (SH->IsNearestNeighbor() == true)) {
-      SH->HasGoodTiming(false);
+    if ((TAC_timing == 0) || (SH->IsGuardRing() == true)) {
+      SH->HasCalibratedTiming(false);
     } else {
-      if (m_TACCal.find(DetID) != m_TACCal.end()) {
-        if (m_TACCal[DetID][m_SideToIndex[Side]].find(StripID) != m_TACCal[DetID][m_SideToIndex[Side]].end()) {
-          ns_timing = TAC_timing*m_TACCal[DetID][m_SideToIndex[Side]][StripID][0] + m_TACCal[DetID][m_SideToIndex[Side]][StripID][1];
-          SH->HasGoodTiming(true);
-        } else {
-          if (Side=='l') {
-            cout<<"MModuleTACcut: Unable to find LV Strip ID "<<StripID<<" in TAC calibration file"<<endl;
-          } else {
-            cout<<"MModuleTACcut: Unable to find HV Strip ID "<<StripID<<" in TAC calibration file"<<endl;
-          }
-          SH->HasGoodTiming(false);
-        }
-      } else {
-        cout<<"MModuleTACcut: Unable to find Det ID "<<StripID<<" in TAC calibration file"<<endl;
-        SH->HasGoodTiming(false);
-      }
+      ns_timing = TAC_timing*m_TACCal[DetID][m_SideToIndex[Side]][StripID][0] + m_TACCal[DetID][m_SideToIndex[Side]][StripID][1];
+      SH->HasCalibratedTiming(true);
     } 
     SH->SetTiming(ns_timing);
-    if ((SH->HasGoodTiming()==true) && (ns_timing > MaxTAC)) {
+    if ((SH->HasCalibratedTiming()==true) && (ns_timing > MaxTAC) && (SH->HasFastTiming()==true) && (SH->IsNearestNeighbor()==false)) {
       MaxTAC = ns_timing;
     }
   }
 
   for (unsigned int i = 0; i < Event->GetNStripHits();) {
     MStripHit* SH = Event->GetStripHit(i);
-    if ((SH->HasGoodTiming() == true) && (SH->IsNearestNeighbor()==false) && (SH->IsGuardRing()==false)) {
+    bool Passed = true;
+    if ((SH->HasCalibratedTiming() == true) && (SH->IsGuardRing()==false)) {
       double SHTiming = SH->GetTiming();
       int DetID = SH->GetDetectorID();
       int StripID = SH->GetStripID();
       char Side = SH->IsLowVoltageStrip() ? 'l' : 'h';
-      if (m_TACCut.find(DetID) != m_TACCut.end()) {
-        if (m_TACCut[DetID][m_SideToIndex[Side]].find(StripID) != m_TACCut[DetID][m_SideToIndex[Side]].end()) {
-          double ShapingOffset = m_TACCut[DetID][m_SideToIndex[Side]][StripID][0];
-          double CoincidenceWindow = m_TACCut[DetID][m_SideToIndex[Side]][StripID][1];
-          double TotalOffset = ShapingOffset + m_DisableTime + m_FlagToEnDelay;
-          if ((SHTiming < TotalOffset + CoincidenceWindow) && (SHTiming > TotalOffset) && (SHTiming > MaxTAC - CoincidenceWindow)){
-            if (HasExpos()==true) {
-              m_ExpoTACcut->AddTAC(DetID, SHTiming);
-            }
-            ++i;
-          } else {
-            Event->RemoveStripHit(i);
-            delete SH;
-          }
-        } else {
-          if (Side=='l') {
-            cout<<"MModuleTACcut: Unable to find LV Strip ID "<<StripID<<" in TAC Cut file"<<endl;
-          } else {
-            cout<<"MModuleTACcut: Unable to find HV Strip ID "<<StripID<<" in TAC Cut file"<<endl;
-          }
-          ++i;
+      double FLNoiseCut = m_TACCut[DetID][m_SideToIndex[Side]][StripID][2];
+      if ((SHTiming < FLNoiseCut)) {
+        Passed = false;
+      } else if (SH->HasFastTiming()==true) {
+        double ShapingOffset = m_TACCut[DetID][m_SideToIndex[Side]][StripID][0];
+        double CoincidenceWindow = m_TACCut[DetID][m_SideToIndex[Side]][StripID][1];
+        double TotalOffset = ShapingOffset + m_DisableTime + m_FlagToEnDelay;
+        if ((SHTiming > TotalOffset + CoincidenceWindow) || (SHTiming < TotalOffset) || (SHTiming < MaxTAC - CoincidenceWindow)) {
+          Passed = false;
         }
-      } else {
-        cout<<"MModuleTACcut: Unable to find Det ID "<<DetID<<" in TAC Cut file"<<endl;
-        ++i;
       }
-    } else {
+      if (Passed==true) {
+        if (HasExpos()==true) {
+          m_ExpoTACcut->AddTAC(DetID, SHTiming);
+        }
+      }
+    }
+    if (Passed == true) {
       ++i;
+    } else {
+      Event->RemoveStripHit(i);
+      delete SH;
     }
   }
 
@@ -338,7 +320,7 @@ bool MModuleTACcut::LoadTACCalFile(MString FName)
   // ReadOutID, Detector, Side, Strip, TAC cal, TAC cal error, TAC offset, TAC offset error
   MFile F;
   if (F.Open(FName) == false) {
-    cout << "MModuleTACcut: failed to open TAC Calibration file." << endl;
+    cout<<"MModuleTACcut: failed to open TAC Calibration file."<<endl;
     return false;
   } else {
     MString Line;
@@ -406,11 +388,12 @@ bool MModuleTACcut::LoadTACCutFile(MString FName)
     cout << "MModuleTACcut: failed to open TAC Cut file." << endl;
     return false;
   } else {
+    bool FLNoiseCutIncluded = false;
     MString Line;
     while (F.ReadLine(Line)) {
       if (!Line.BeginsWith("#")) {
         std::vector<MString> Tokens = Line.Tokenize(",");
-        if (Tokens.size() == 5) {
+        if ((Tokens.size() == 5) || (Tokens.size() == 6)) {
           int DetID = Tokens[0].ToInt();
           MString SideString = Tokens[1].Trim();
           char Side;
@@ -424,8 +407,13 @@ bool MModuleTACcut::LoadTACCutFile(MString FName)
           int StripID = Tokens[2].ToInt();
           double ShapingOffset = Tokens[3].ToDouble();
           double CoincidenceWindow = Tokens[4].ToDouble();
+          double FLNoiseCut = 100; // Old file format did not include a FLNoise Cut. Default to 100ns if not present in the file.
+          if (Tokens.size()==6) {
+            FLNoiseCut = Tokens[5].ToDouble();
+            FLNoiseCutIncluded = true;
+          }
           vector<double> CutParams;
-          CutParams.push_back(ShapingOffset); CutParams.push_back(CoincidenceWindow);
+          CutParams.push_back(ShapingOffset); CutParams.push_back(CoincidenceWindow); CutParams.push_back(FLNoiseCut);
           
           if (m_TACCut.find(DetID) == m_TACCut.end()) {
             vector<unordered_map<int, vector<double>>> TempVector;
@@ -441,7 +429,7 @@ bool MModuleTACcut::LoadTACCutFile(MString FName)
           }
           
           if (m_SideToIndex.find(Side) != m_SideToIndex.end()) {
-            m_TACCut[DetID][m_SideToIndex[Side]][StripID] = CalValues;
+            m_TACCut[DetID][m_SideToIndex[Side]][StripID] = CutParams;
           } else {
             cout<<"MModuleTACcut: Unable to identify Side "<<Side<<" In TAC calibration file."<<endl;
           }
