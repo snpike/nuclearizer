@@ -106,12 +106,12 @@ bool MModuleTACcut::Initialize()
   // Initialize the module 
 
   if (LoadTACCalFile(m_TACCalFile) == false) {
-    cout<<m_XmlTag<<": TAC Calibration file could not be loaded."<<endl;
+    cout<<m_XmlTag<<": Error: TAC Calibration file could not be loaded."<<endl;
     return false;
   }
 
   if (LoadTACCutFile(m_TACCutFile) == false) {
-    cout<<m_XmlTag<<": TAC Calibration file could not be loaded."<<endl;
+    cout<<m_XmlTag<<": Error: TAC Calibration file could not be loaded."<<endl;
     return false;
   }
 
@@ -153,6 +153,30 @@ void MModuleTACcut::CreateExpos()
 
 bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event) 
 {
+  // Start with sanity checks:
+  for (unsigned int i = 0; i < Event->GetNStripHits(); ++i) {
+    MStripHit* SH = Event->GetStripHit(i);
+
+    int DetID = SH->GetDetectorID();
+    int StripID = SH->GetStripID();
+
+    if (DetID >= m_LVTACCal.size()) {
+      cout<<m_XmlTag<<": Error: DetID "<<DetID<<" is not in LVTACCal (max det ID: "<<m_LVTACCal.size()-1<<") - skipping event"<<endl;
+      return false;
+    }
+    if (StripID >= m_LVTACCal[DetID].size()) {
+      cout<<m_XmlTag<<": Error: StripID "<<StripID<<" is not in LVTACCal (max strip ID: "<<m_LVTACCal[DetID].size()-1<<") - skipping event"<<endl;
+      return false;
+    }
+    if (DetID >= m_HVTACCal.size()) {
+      cout<<m_XmlTag<<": Error: DetID "<<DetID<<" is not in HVTACCal (max det ID: "<<m_HVTACCal.size()-1<<") - skipping event"<<endl;
+      return false;
+    }
+    if (StripID >= m_HVTACCal[DetID].size()) {
+      cout<<m_XmlTag<<": Error: StripID "<<StripID<<" is not in HVTACCal (max strip ID: "<<m_HVTACCal[DetID].size()-1<<") - skipping event"<<endl;
+      return false;
+    }
+  }
 
   double MaxTAC = -numeric_limits<double>::max();
   for (unsigned int i = 0; i < Event->GetNStripHits(); ++i) {

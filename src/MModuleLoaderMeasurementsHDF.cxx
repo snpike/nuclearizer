@@ -374,6 +374,8 @@ bool MModuleLoaderMeasurementsHDF::AnalyzeEvent(MReadOutAssembly* Event)
     uint16_t ADCs;
     uint16_t TACs;
     uint8_t NumberOfHits;
+    uint8_t HitType;
+    uint8_t TimingType;
 
     if (m_HDFStripHitVersion == MHDFStripHitVersion::V1_0) {
       MHDFStripHit_V1_0& Hit = m_Buffer_1_0[m_CurrentBatchIndex];
@@ -386,6 +388,9 @@ bool MModuleLoaderMeasurementsHDF::AnalyzeEvent(MReadOutAssembly* Event)
       ADCs = Hit.m_EnergyData;
       TACs = Hit.m_TimingData;
       NumberOfHits = Hit.m_Hits;
+      HitType = Hit.m_HitType;
+      TimingType = Hit.m_TimingType;
+    
     } else if (m_HDFStripHitVersion == MHDFStripHitVersion::V1_2) {
       MHDFStripHit_V1_2& Hit = m_Buffer_1_2[m_CurrentBatchIndex];
       ++m_CurrentBatchIndex;
@@ -397,6 +402,9 @@ bool MModuleLoaderMeasurementsHDF::AnalyzeEvent(MReadOutAssembly* Event)
       ADCs = Hit.m_EnergyData;
       TACs = Hit.m_TimingData;
       NumberOfHits = Hit.m_Hits;
+      HitType = Hit.m_HitType;
+      TimingType = Hit.m_TimingType;
+    
     } else {
       if (g_Verbosity >= c_Error) cout<<m_XmlTag<<": Unhandled HDF hit version found: "<<m_HDFStripHitVersion<<endl<<"Please update this module."<<endl;
       return false;
@@ -411,6 +419,8 @@ bool MModuleLoaderMeasurementsHDF::AnalyzeEvent(MReadOutAssembly* Event)
       cout<<"  EnergyData: "<<ADCs<<endl;
       cout<<"  TimingData: "<<TACs<<endl;
       cout<<"  Hits: "<<(int) NumberOfHits<<endl;
+      cout<<" HitType: "<<HitType<<endl;
+      cout<<" TimingType: "<<TimingType<<endl;
     }
 
     if (EventID < m_LastEventID) {
@@ -434,7 +444,14 @@ bool MModuleLoaderMeasurementsHDF::AnalyzeEvent(MReadOutAssembly* Event)
       H->IsLowVoltageStrip(m_StripMap.IsLowVoltage(StripID));
       H->SetADCUnits(ADCs);
       H->SetTAC(TACs);
+      
+      // Set boolean flags based on HitType and TimingType
+      H->IsGuardRing(HitType == 2);
+      H->IsNearestNeighbor(HitType == 1);
+      H->HasFastTiming(TimingType == 1);
+        
       Event->AddStripHit(H);
+        
     } else {
       if (g_Verbosity >= c_Error) cout<<m_XmlTag<<": Read-out ID "<<StripID<<" not found in strip map"<<endl;
       return false;
