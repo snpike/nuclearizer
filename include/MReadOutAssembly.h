@@ -276,7 +276,7 @@ class MReadOutAssembly : public MReadOutSequence
   //! Stream the content in MEGAlib's evta format 
   void StreamEvta(ostream& S);
   //! Stream the content in MEGAlib's roa format 
-  void StreamRoa(ostream& S, bool WithDescriptor = true);
+  void StreamRoa(ostream& S, bool WithADCs = true, bool WithTACs = true, bool WithEnergies = false, bool WithTimings = false, bool WithTemperatures = false, bool WithFlags = false, bool WithOrigins = false, bool WithNearestNeighbors = false);
   //! Build the next MReadoutAssemply from a .dat file
   bool GetNextFromDatFile(MFile &F);
   //! Use the info in m_Aspect to turn m_CL into an absolute UTC time
