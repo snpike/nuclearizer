@@ -86,7 +86,7 @@ void MGUIOptionsTACcut::Create()
   m_OptionsFrame->AddFrame(m_TACCutFileSelector, TACCutLayout);
 
   TGLayoutHints* DisableTimeLayout = new TGLayoutHints(kLHintsTop | kLHintsCenterX | kLHintsExpandX, 30, 10, 0, 10);  
-  m_DisableTime = new MGUIEEntry(m_OptionsFrame, "Diable Time [ns]:", false, dynamic_cast<MModuleTACcut*>(m_Module)->GetDisableTime(), false, -numeric_limits<double>::max()/2, numeric_limits<double>::max()/2);
+  m_DisableTime = new MGUIEEntry(m_OptionsFrame, "Disable Time [ns]:", false, dynamic_cast<MModuleTACcut*>(m_Module)->GetDisableTime(), false, -numeric_limits<double>::max()/2, numeric_limits<double>::max()/2);
   m_OptionsFrame->AddFrame(m_DisableTime, DisableTimeLayout);
 
   TGLayoutHints* FlagToEnDelayLayout = new TGLayoutHints(kLHintsTop | kLHintsCenterX | kLHintsExpandX, 30, 10, 0, 10);  
