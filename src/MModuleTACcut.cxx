@@ -165,7 +165,7 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
       cout<<m_XmlTag<<": Error: DetID "<<DetID<<" is not in TACCal (max det ID: "<<m_TACCal.size()-1<<") - skipping event"<<endl;
       return false;
     }
-    if ((SH->IsGuardRing()==false) && (StripID >= m_TACCal[DetID][m_SideToIndex[Side]].size())) {
+    if (StripID >= m_TACCal[DetID][m_SideToIndex[Side]].size()) {
       cout<<m_XmlTag<<": Error: StripID "<<StripID<<" on side "<<Side<<" is not in TACCal (max strip ID: "<<m_TACCal[DetID].size()-1<<") - skipping event"<<endl;
       return false;
     }
@@ -173,7 +173,7 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
       cout<<m_XmlTag<<": Error: DetID "<<DetID<<" is not in TACCut (max det ID: "<<m_TACCut.size()-1<<") - skipping event"<<endl;
       return false;
     }
-    if ((SH->IsGuardRing()==false) && (StripID >= m_TACCut[DetID][m_SideToIndex[Side]].size())) {
+    if (StripID >= m_TACCut[DetID][m_SideToIndex[Side]].size()) {
       cout<<m_XmlTag<<": Error: StripID "<<StripID<<" on side "<<Side<<" is not in TACCut (max strip ID: "<<m_TACCut[DetID].size()-1<<") - skipping event"<<endl;
       return false;
     }
