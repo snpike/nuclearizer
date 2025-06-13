@@ -216,10 +216,7 @@ bool MModuleTACcut::AnalyzeEvent(MReadOutAssembly* Event)
         double TotalOffset = ShapingOffset + m_DisableTime + m_FlagToEnDelay;
         if ((SHTiming > TotalOffset + CoincidenceWindow) || (SHTiming < TotalOffset) || (SHTiming < MaxTAC - CoincidenceWindow)) {
           Passed = false;
-        }
-      }
-      if (Passed==true) {
-        if (HasExpos()==true) {
+        } else if (HasExpos()==true) {
           m_ExpoTACcut->AddTAC(DetID, SHTiming);
         }
       }
