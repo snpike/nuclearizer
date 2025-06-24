@@ -147,7 +147,7 @@ bool MModuleLoaderMeasurementsHDF::OpenHDF5File(MString FileName)
 {
   try { // HDF5 throws exceptions, thus need to encapsulate everything in try..catch
 
-    m_HDFFile = H5File(m_FileName, H5F_ACC_RDONLY);
+    m_HDFFile = H5File(FileName, H5F_ACC_RDONLY);
 
     // ToDo: Check for version.
     m_HDFStripHitVersion = MHDFStripHitVersion::V1_0;
