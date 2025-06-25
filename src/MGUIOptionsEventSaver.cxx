@@ -89,6 +89,10 @@ void MGUIOptionsEventSaver::Create()
   m_SaveBadEvents->SetOn(dynamic_cast<MModuleEventSaver*>(m_Module)->GetSaveBadEvents());
   m_OptionsFrame->AddFrame(m_SaveBadEvents, LabelLayout);
 
+  m_SaveVetoEvents = new TGCheckButton(m_OptionsFrame, "Save guard ring and shield veto events (Veto)", 1);
+  m_SaveVetoEvents->SetOn(dynamic_cast<MModuleEventSaver*>(m_Module)->GetSaveVetoEvents());
+  m_OptionsFrame->AddFrame(m_SaveVetoEvents, LabelLayout);
+
   m_AddTimeTag = new TGCheckButton(m_OptionsFrame, "Add a unique time tag", 3);
   m_AddTimeTag->SetOn(dynamic_cast<MModuleEventSaver*>(m_Module)->GetAddTimeTag());
   m_OptionsFrame->AddFrame(m_AddTimeTag, LabelLayout);
@@ -200,6 +204,7 @@ bool MGUIOptionsEventSaver::OnApply()
   dynamic_cast<MModuleEventSaver*>(m_Module)->SetFileName(m_FileSelector->GetFileName());
 
   dynamic_cast<MModuleEventSaver*>(m_Module)->SetSaveBadEvents(m_SaveBadEvents->IsOn());
+  dynamic_cast<MModuleEventSaver*>(m_Module)->SetSaveVetoEvents(m_SaveVetoEvents->IsOn());
   dynamic_cast<MModuleEventSaver*>(m_Module)->SetAddTimeTag(m_AddTimeTag->IsOn());
   dynamic_cast<MModuleEventSaver*>(m_Module)->SetSplitFile(m_SplitFile->IsOn());
   dynamic_cast<MModuleEventSaver*>(m_Module)->SetSplitFileTime(MTime(m_SplitFileTime->GetAsInt()));

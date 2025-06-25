@@ -79,6 +79,9 @@ class MGUIOptionsEventSaver : public MGUIOptions
   //! Checkbutton to save or reject bad events
   TGCheckButton* m_SaveBadEvents;
 
+  //! Checkbutton to save veto events
+  TGCheckButton* m_SaveVetoEvents;
+
   //! Checkbutton to add a time tag
   TGCheckButton* m_AddTimeTag;
 
