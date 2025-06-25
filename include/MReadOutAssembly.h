@@ -328,9 +328,6 @@ class MReadOutAssembly : public MReadOutSequence
   //! Quality of this event
   double m_EventQuality;
 
-  //! Veto flag of this event
-  bool m_Veto;
-
   //! Guard ring veto flag
   bool m_GuardRingVeto;
 
