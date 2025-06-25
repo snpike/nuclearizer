@@ -544,39 +544,38 @@ bool MModuleDepthCalibration2024::LoadSplinesFile(MString FName)
   }
   bool Result = true;
   MString line;
-  int DetID, NewDetID;
-  while( F.ReadLine(line) ){
-    if( line.Length() != 0 ){
-      if( line.BeginsWith("#") ){
+  int DetID = 0;
+  while (F.ReadLine(line)) {
+    if (line.Length() != 0) {
+      if (line.BeginsWith("#")) {
         // If we've reached a new ctd spline then record the previous one in the m_SplineMaps and start a new one.
         vector<MString> tokens = line.Tokenize(" ");
-        NewDetID = tokens[1].ToInt();
-        if( depthvec.size() > 0 ) {
+        if (depthvec.size() > 0) {
           Result &= AddDepthCTD(depthvec, ctdarr, DetID, m_DepthGrid, m_CTDMap);        
         }
         depthvec.clear(); ctdarr.clear(); 
-        for( unsigned int i=0; i < 5; ++i ){
+        for (unsigned int i=0; i < 5; ++i) {
             vector<double> temp_vec;
             ctdarr.push_back(temp_vec);
         }
-        DetID = NewDetID;
+        DetID = tokens[1].ToInt();
       } else {
         vector<MString> tokens = line.Tokenize(",");
         depthvec.push_back(tokens[0].ToDouble());
 
         // Multiple CTDs allowed.
-        for( unsigned int i = 0; i < (tokens.size() - 1); ++i ){
+        for (unsigned int i = 0; i < (tokens.size() - 1); ++i) {
           ctdarr[i].push_back(tokens[1+i].ToDouble());
         }
         // Fill in the higher grades with the GRADE=0 CTD if there are none listed in the file.
-        for(unsigned int i=tokens.size()-1; i<5; ++i){
+        for (unsigned int i=tokens.size()-1; i<5; ++i) {
           ctdarr[i].push_back(tokens[1].ToDouble());
         }
       }
     }
   }
   //make last spline
-  if( depthvec.size() > 0 ){
+  if (depthvec.size() > 0) {
     Result &= AddDepthCTD(depthvec, ctdarr, DetID, m_DepthGrid, m_CTDMap);
   }
 
