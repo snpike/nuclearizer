@@ -58,10 +58,15 @@ class MModuleEventSaver : public MModule
   //! Set the file name
   void SetFileName(const MString& Name) { m_FileName = Name; }
   
-  //! Get the file name
+  //! Return true if the Bad events should be saved
   bool GetSaveBadEvents() const { return m_SaveBadEvents; }
-  //! Set the file name
+  //! Set whether the Bad events should be saved
   void SetSaveBadEvents(bool SaveBadEvents) { m_SaveBadEvents = SaveBadEvents; }
+
+  //! Return true if the Veto events should be saved
+  bool GetSaveVetoEvents() const { return m_SaveVetoEvents; }
+  //! Set whether the Veto events should be saved
+  void SetSaveVetoEvents(bool SaveVetoEvents) {m_SaveVetoEvents = SaveVetoEvents; }
   
   //! Get the add time tag flag
   bool GetAddTimeTag() const { return m_AddTimeTag; }
@@ -187,6 +192,9 @@ class MModuleEventSaver : public MModule
   
   //! Save bad events
   bool m_SaveBadEvents;
+
+  //! Save Veto events
+  bool m_SaveVetoEvents;
 
   //! Add a time tag to the file
   bool m_AddTimeTag;

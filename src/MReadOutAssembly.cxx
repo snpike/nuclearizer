@@ -119,7 +119,8 @@ void MReadOutAssembly::Clear()
   m_EventTimeUTC = 0;
   m_MJD = 0.0;
 
-  m_Veto = false;
+  m_ShieldVeto = false;
+  m_GuardRingVeto = false;
   m_Trigger = true;
 
   for (int DetectorID = 0; DetectorID <= 11; DetectorID++) {
@@ -535,6 +536,12 @@ bool MReadOutAssembly::StreamDat(ostream& S, int Version)
     S<<endl;
   }
 
+  if (m_GuardRingVeto == true) {
+    S<<"BD GR Veto"<<endl;
+  }
+  if (m_ShieldVeto == true) {
+    S<<"BD Shield Veto"<<endl;
+  }
 
   
   return true;
@@ -617,6 +624,16 @@ void MReadOutAssembly::StreamEvta(ostream& S)
     if (m_DepthCalibration_OutofRangeString != "") S<<" ("<<m_DepthCalibration_OutofRangeString<<")";
     S<<endl;
   }
+
+  if (m_GuardRingVeto == true) {
+    S<<"BD GR Veto"<<endl;
+  }
+  if (m_ShieldVeto == true) {
+    S<<"BD Shield Veto"<<endl;
+  }
+
+
+
 }
 
 
@@ -711,7 +728,23 @@ bool MReadOutAssembly::IsBad() const
 
   return false;
 }
-  
+ 
+
+//////////////////////////////////////////////////////////////////////////////
+
+bool MReadOutAssembly::IsVeto() const
+{
+  //! Returns true if none of the "bad" or "incomplete" falgs has been set
+
+  if (m_ShieldVeto == true) return true;
+  if (m_GuardRingVeto == true) return true;
+
+  return false;
+}
+
+
+//////////////////////////////////////////////////////////////////////////////
+
 bool MReadOutAssembly::ComputeAbsoluteTime()
 {
 

@@ -75,6 +75,7 @@ MModuleEventSaver::MModuleEventSaver() : MModule()
   m_InternalFileName = "";
   m_Zip = false;
   m_SaveBadEvents = true;
+  m_SaveVetoEvents = true;
   m_AddTimeTag = false;
     
   m_RoaWithADCs = true;
@@ -332,6 +333,11 @@ bool MModuleEventSaver::AnalyzeEvent(MReadOutAssembly* Event)
     if (Event->IsBad() == true) return true;
   }
 
+  if (m_SaveVetoEvents == false) {
+    if (Event->IsVeto() == true) return true;
+  }
+
+
   MFile* Choosen = 0; // Wish C++ would allow unassigned references...
   if (m_SplitFile == true) {
     MTime Current = Event->GetTime();
@@ -395,6 +401,10 @@ bool MModuleEventSaver::ReadXmlConfiguration(MXmlNode* Node)
   if (SaveBadEventsNode != 0) {
     m_SaveBadEvents = SaveBadEventsNode->GetValueAsBoolean();
   }
+  MXmlNode* SaveVetoEventsNode = Node->GetNode("SaveVetoEvents");
+  if (SaveVetoEventsNode != 0) {
+    m_SaveVetoEvents = SaveVetoEventsNode->GetValueAsBoolean();
+  }
   MXmlNode* AddTimeTagNode = Node->GetNode("AddTimeTag");
   if (AddTimeTagNode != 0) {
     m_AddTimeTag = AddTimeTagNode->GetValueAsBoolean();
@@ -456,6 +466,7 @@ MXmlNode* MModuleEventSaver::CreateXmlConfiguration()
   new MXmlNode(Node, "FileName", m_FileName);
   new MXmlNode(Node, "Mode", m_Mode);
   new MXmlNode(Node, "SaveBadEvents", m_SaveBadEvents);
+  new MXmlNode(Node, "SaveVetoEvents", m_SaveVetoEvents);
   new MXmlNode(Node, "AddTimeTag", m_AddTimeTag);
   new MXmlNode(Node, "SplitFile", m_SplitFile);
   new MXmlNode(Node, "SplitFileTime", m_SplitFileTime.GetAsSystemSeconds());
