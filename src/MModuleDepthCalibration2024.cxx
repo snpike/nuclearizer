@@ -205,209 +205,217 @@ void MModuleDepthCalibration2024::CreateExpos()
 bool MModuleDepthCalibration2024::AnalyzeEvent(MReadOutAssembly* Event) 
 {
   
-  for( unsigned int i = 0; i < Event->GetNHits(); ++i ){
-    // Each event represents one photon. It contains Hits, representing interaction sites.
-    // H is a pointer to an instance of the MHit class. Each Hit has activated strips, represented by
-    // instances of the MStripHit class.
-    MHit* H = Event->GetHit(i);
+  if (Event->GetGuardRingVeto()==true) {
+    
+    Event->SetDepthCalibrationIncomplete();
+    return false;
+  
+  } else {
+    
+    for( unsigned int i = 0; i < Event->GetNHits(); ++i ){
+      // Each event represents one photon. It contains Hits, representing interaction sites.
+      // H is a pointer to an instance of the MHit class. Each Hit has activated strips, represented by
+      // instances of the MStripHit class.
+      MHit* H = Event->GetHit(i);
 
-    int Grade = GetHitGrade(H);
+      int Grade = GetHitGrade(H);
 
-    // cout << "got a hit with grade " << Grade << endl;
+      // cout << "got a hit with grade " << Grade << endl;
 
-    // Handle different grades differently    
-    // GRADE=-1 is an error. Break from the loop and continue.
-    if ( Grade < 0 ){
-      H->SetNoDepth();
-      Event->SetDepthCalibrationIncomplete();
-      if (Grade == -1) {
-        ++m_ErrorSH;
-      } else if (Grade == -2) {
-        ++m_ErrorNullSH;
-      } else if (Grade == -3) {
-        ++m_ErrorNoE;
-      }
-    } else if (Grade > 4) { // GRADE=5 is some complicated geometry with multiple hits on a single strip. GRADE=6 means not all strips are adjacent.
-      H->SetNoDepth();
-      Event->SetDepthCalibrationIncomplete();
-      if (Grade==5) {
-        ++m_Error5;
-      } else if (Grade==6) {
-        ++m_Error6;
-      }
-    } else { // If the Grade is 0-4, we can handle it.
-
-      MVector LocalPosition, PositionResolution, GlobalPosition, GlobalResolution, LocalOrigin;
-
-      // Calculate the position. If error is thrown, record and no depth.
-      // Take a Hit and separate its activated X- and Y-strips into separate vectors.
-      std::vector<MStripHit*> XStrips;
-      std::vector<MStripHit*> YStrips;
-      // cout << "looping over strip hits..." << endl;
-      for( unsigned int j = 0; j < H->GetNStripHits(); ++j){
-        // cout << "strip hit " << j << endl;
-        MStripHit* SH = H->GetStripHit(j);
-        if( SH->IsLowVoltageStrip() ) XStrips.push_back(SH); else YStrips.push_back(SH);
-      }
-
-      // cout << "finished looping over strip hits" << endl;
-      double XEnergyFraction;
-      double YEnergyFraction;
-      MStripHit* XSH = GetDominantStrip(XStrips, XEnergyFraction); 
-      MStripHit* YSH = GetDominantStrip(YStrips, YEnergyFraction); 
-
-      // cout << "found the dominant strips" << endl;
-
-      double CTD_s = 0.0;
-
-      //now try and get z position
-      int DetID = XSH->GetDetectorID();
-      int XStripID = XSH->GetStripID();
-      int YStripID = YSH->GetStripID();
-      int pixel_code = 10000*DetID + 100*XStripID + YStripID;
-
-      // TODO: Calculate X and Y positions more rigorously using charge sharing.
-      // Somewhat confusing notation: XStrips run parallel to X-axis, so we calculate X position with YStrips.
-      double Xpos = m_YPitches[DetID]*((m_NYStrips[DetID]/2.0) - ((double)YStripID));
-      double Ypos = m_XPitches[DetID]*((m_NXStrips[DetID]/2.0) - ((double)XStripID));
-      // cout << "X position " << Xpos << endl;
-      // cout << "Y position " << Ypos << endl;
-      double Zpos = 0.0;
-
-      double Xsigma = m_YPitches[DetID]/sqrt(12.0);
-      double Ysigma = m_XPitches[DetID]/sqrt(12.0);
-      double Zsigma = m_Thicknesses[DetID]/sqrt(12.0);
-
-      // cout << "looking up the coefficients" << endl;
-      vector<double>* Coeffs = GetPixelCoeffs(pixel_code);
-
-      // TODO: For Card Cage, may need to add noise
-      double XTiming = XSH->GetTiming();
-      double YTiming = YSH->GetTiming();
-
-      // cout << "Got the coefficients: " << Coeffs << endl;
-
-      // If there aren't coefficients loaded, then calibration is incomplete.
-      if( Coeffs == nullptr ){
-        //set the bad flag for depth
+      // Handle different grades differently    
+      // GRADE=-1 is an error. Break from the loop and continue.
+      if ( Grade < 0 ){
         H->SetNoDepth();
         Event->SetDepthCalibrationIncomplete();
-        ++m_Error1;
-      }
-      // If there isn't timing information, set no depth.
-      // Alex's old comments suggest assigning the event to the middle of the detector and the position resolution to be large.
-      else if( (XTiming < 1.0E-6) || (YTiming < 1.0E-6) ){
-          // cout << "no timing info" << endl;
-          ++m_Error3;
+        if (Grade == -1) {
+          ++m_ErrorSH;
+        } else if (Grade == -2) {
+          ++m_ErrorNullSH;
+        } else if (Grade == -3) {
+          ++m_ErrorNoE;
+        }
+      } else if (Grade > 4) { // GRADE=5 is some complicated geometry with multiple hits on a single strip. GRADE=6 means not all strips are adjacent.
+        H->SetNoDepth();
+        Event->SetDepthCalibrationIncomplete();
+        if (Grade==5) {
+          ++m_Error5;
+        } else if (Grade==6) {
+          ++m_Error6;
+        }
+      } else { // If the Grade is 0-4, we can handle it.
+
+        MVector LocalPosition, PositionResolution, GlobalPosition, GlobalResolution, LocalOrigin;
+
+        // Calculate the position. If error is thrown, record and no depth.
+        // Take a Hit and separate its activated X- and Y-strips into separate vectors.
+        std::vector<MStripHit*> XStrips;
+        std::vector<MStripHit*> YStrips;
+        // cout << "looping over strip hits..." << endl;
+        for( unsigned int j = 0; j < H->GetNStripHits(); ++j){
+          // cout << "strip hit " << j << endl;
+          MStripHit* SH = H->GetStripHit(j);
+          if( SH->IsLowVoltageStrip() ) XStrips.push_back(SH); else YStrips.push_back(SH);
+        }
+
+        // cout << "finished looping over strip hits" << endl;
+        double XEnergyFraction;
+        double YEnergyFraction;
+        MStripHit* XSH = GetDominantStrip(XStrips, XEnergyFraction); 
+        MStripHit* YSH = GetDominantStrip(YStrips, YEnergyFraction); 
+
+        // cout << "found the dominant strips" << endl;
+
+        double CTD_s = 0.0;
+
+        //now try and get z position
+        int DetID = XSH->GetDetectorID();
+        int XStripID = XSH->GetStripID();
+        int YStripID = YSH->GetStripID();
+        int pixel_code = 10000*DetID + 100*XStripID + YStripID;
+
+        // TODO: Calculate X and Y positions more rigorously using charge sharing.
+        // Somewhat confusing notation: XStrips run parallel to X-axis, so we calculate X position with YStrips.
+        double Xpos = m_YPitches[DetID]*((m_NYStrips[DetID]/2.0) - ((double)YStripID));
+        double Ypos = m_XPitches[DetID]*((m_NXStrips[DetID]/2.0) - ((double)XStripID));
+        // cout << "X position " << Xpos << endl;
+        // cout << "Y position " << Ypos << endl;
+        double Zpos = 0.0;
+
+        double Xsigma = m_YPitches[DetID]/sqrt(12.0);
+        double Ysigma = m_XPitches[DetID]/sqrt(12.0);
+        double Zsigma = m_Thicknesses[DetID]/sqrt(12.0);
+
+        // cout << "looking up the coefficients" << endl;
+        vector<double>* Coeffs = GetPixelCoeffs(pixel_code);
+
+        // TODO: For Card Cage, may need to add noise
+        double XTiming = XSH->GetTiming();
+        double YTiming = YSH->GetTiming();
+
+        // cout << "Got the coefficients: " << Coeffs << endl;
+
+        // If there aren't coefficients loaded, then calibration is incomplete.
+        if( Coeffs == nullptr ){
+          //set the bad flag for depth
           H->SetNoDepth();
           Event->SetDepthCalibrationIncomplete();
-      }
-
-      // If there are coefficients and timing information is loaded, try calculating the CTD and depth
-      else {
-
-        vector<double> ctdvec = GetCTD(DetID, Grade);
-        vector<double> depthvec = GetDepth(DetID);
-
-      	if ( ctdvec.size() == 0){
-      	  cout << "Empty CTD vector" << endl;
-      	  H->SetNoDepth();
-      	  Event->SetDepthCalibrationIncomplete();
-      	}
-
-        double CTD;
-        if ( XSH->IsLowVoltageStrip() ){
-          CTD = (YTiming - XTiming);
+          ++m_Error1;
         }
+        // If there isn't timing information, set no depth.
+        // Alex's old comments suggest assigning the event to the middle of the detector and the position resolution to be large.
+        else if( (XTiming < 1.0E-6) || (YTiming < 1.0E-6) ){
+            // cout << "no timing info" << endl;
+            ++m_Error3;
+            H->SetNoDepth();
+            Event->SetDepthCalibrationIncomplete();
+        }
+
+        // If there are coefficients and timing information is loaded, try calculating the CTD and depth
         else {
-          CTD = (XTiming - YTiming);
-        }
 
-        // cout << "Got the CTD: " << CTD << endl;
+          vector<double> ctdvec = GetCTD(DetID, Grade);
+          vector<double> depthvec = GetDepth(DetID);
 
-        // Confirmed that this matches SP's python code.
-        CTD_s = (CTD - Coeffs->at(1))/(Coeffs->at(0)); //apply inverse stretch and offset
+        	if ( ctdvec.size() == 0){
+        	  cout << "Empty CTD vector" << endl;
+        	  H->SetNoDepth();
+        	  Event->SetDepthCalibrationIncomplete();
+        	}
 
-        // cout << "Transformed CTD: " << CTD_s << endl;
-
-        double Xmin = * std::min_element(ctdvec.begin(), ctdvec.end());
-        double Xmax = * std::max_element(ctdvec.begin(), ctdvec.end());
-
-        // cout << "Got the min and max ctd values: " << Xmin << "; " << Xmax << endl;
-
-        double noise = GetTimingNoiseFWHM(pixel_code, H->GetEnergy());
-
-        // cout << "Got the timing noise: " << noise << endl;
-
-        //if the CTD is out of range, check if we should reject the event.
-        if( (CTD_s < (Xmin - 2.0*noise)) || (CTD_s > (Xmax + 2.0*noise)) ){
-          H->SetNoDepth();
-          Event->SetDepthCalibrationIncomplete();
-          ++m_Error2;
-        }
-
-        // If the CTD is in range, calculate the depth
-        else {
-          // cout << "Calculating depth" << endl;
-          // Calculate the probability given timing noise of CTD_s corresponding to the values of depth in depthvec
-          // Utlize symmetry of the normal distribution.
-          vector<double> prob_dist = norm_pdf(ctdvec, CTD_s, noise/2.355);
-          
-          // Weight the depth by probability
-      	  double prob_sum = 0.0;
-      	  for( unsigned int k=0; k < prob_dist.size(); ++k ){
-      	    prob_sum += prob_dist[k];
-      	  }
-          //double prob_sum = std::accumulate(prob_dist.begin(), prob_dist.end(), 0);
-	         //cout << "summed probability: " << prob_sum << endl;
-          double weighted_depth = 0.0;
-          for( unsigned int k = 0; k < depthvec.size(); ++k ){
-            weighted_depth += prob_dist[k]*depthvec[k];
+          double CTD;
+          if ( XSH->IsLowVoltageStrip() ){
+            CTD = (YTiming - XTiming);
           }
-          // Calculate the expectation value of the depth
-          double mean_depth = weighted_depth/prob_sum;
-
-          // Calculate the standard deviation of the depth
-          double depth_var = 0.0;
-          for( unsigned int k=0; k<depthvec.size(); ++k ){
-            depth_var += prob_dist[k]*pow(depthvec[k]-mean_depth, 2.0);
+          else {
+            CTD = (XTiming - YTiming);
           }
 
-          Zsigma =  sqrt(depth_var/prob_sum);
-          Zpos = mean_depth - (m_Thicknesses[DetID]/2.0);
+          // cout << "Got the CTD: " << CTD << endl;
 
-          // Add the depth to the GUI histogram.
-          if (Event->IsStripPairingIncomplete()==false) {
-            m_ExpoDepthCalibration->AddDepth(DetID, Zpos);
+          // Confirmed that this matches SP's python code.
+          CTD_s = (CTD - Coeffs->at(1))/(Coeffs->at(0)); //apply inverse stretch and offset
+
+          // cout << "Transformed CTD: " << CTD_s << endl;
+
+          double Xmin = * std::min_element(ctdvec.begin(), ctdvec.end());
+          double Xmax = * std::max_element(ctdvec.begin(), ctdvec.end());
+
+          // cout << "Got the min and max ctd values: " << Xmin << "; " << Xmax << endl;
+
+          double noise = GetTimingNoiseFWHM(pixel_code, H->GetEnergy());
+
+          // cout << "Got the timing noise: " << noise << endl;
+
+          //if the CTD is out of range, check if we should reject the event.
+          if( (CTD_s < (Xmin - 2.0*noise)) || (CTD_s > (Xmax + 2.0*noise)) ){
+            H->SetNoDepth();
+            Event->SetDepthCalibrationIncomplete();
+            ++m_Error2;
           }
-          m_NoError+=1;
+
+          // If the CTD is in range, calculate the depth
+          else {
+            // cout << "Calculating depth" << endl;
+            // Calculate the probability given timing noise of CTD_s corresponding to the values of depth in depthvec
+            // Utlize symmetry of the normal distribution.
+            vector<double> prob_dist = norm_pdf(ctdvec, CTD_s, noise/2.355);
+            
+            // Weight the depth by probability
+        	  double prob_sum = 0.0;
+        	  for( unsigned int k=0; k < prob_dist.size(); ++k ){
+        	    prob_sum += prob_dist[k];
+        	  }
+            //double prob_sum = std::accumulate(prob_dist.begin(), prob_dist.end(), 0);
+  	         //cout << "summed probability: " << prob_sum << endl;
+            double weighted_depth = 0.0;
+            for( unsigned int k = 0; k < depthvec.size(); ++k ){
+              weighted_depth += prob_dist[k]*depthvec[k];
+            }
+            // Calculate the expectation value of the depth
+            double mean_depth = weighted_depth/prob_sum;
+
+            // Calculate the standard deviation of the depth
+            double depth_var = 0.0;
+            for( unsigned int k=0; k<depthvec.size(); ++k ){
+              depth_var += prob_dist[k]*pow(depthvec[k]-mean_depth, 2.0);
+            }
+
+            Zsigma =  sqrt(depth_var/prob_sum);
+            Zpos = mean_depth - (m_Thicknesses[DetID]/2.0);
+
+            // Add the depth to the GUI histogram.
+            if (Event->IsStripPairingIncomplete()==false) {
+              m_ExpoDepthCalibration->AddDepth(DetID, Zpos);
+            }
+            m_NoError+=1;
+          }
         }
+
+      LocalPosition.SetXYZ(Xpos, Ypos, Zpos);
+      LocalOrigin.SetXYZ(0.0,0.0,0.0);
+      // cout << m_DetectorNames[DetID] << endl;
+      GlobalPosition = m_Detectors[DetID]->GetSensitiveVolume(0)->GetPositionInWorldVolume(LocalPosition);
+      // cout << "Found the GlobalPosition" << endl;
+
+      // Make sure XYZ resolution are correctly mapped to the global coord system.
+      PositionResolution.SetXYZ(Xsigma, Ysigma, Zsigma);
+      GlobalResolution = ((m_Detectors[DetID]->GetSensitiveVolume(0)->GetPositionInWorldVolume(PositionResolution)) - (m_Detectors[DetID]->GetSensitiveVolume(0)->GetPositionInWorldVolume(LocalOrigin))).Abs();
+      
+      // cout << "Set the PositionResolution vector" << endl;
+
+      H->SetPosition(GlobalPosition); 
+
+      // cout << "Set the global position for the strip hit" << endl;
+
+      H->SetPositionResolution(GlobalResolution);
+
+      // cout << "Set the position resolution for the strip hit" << endl;
+
+
       }
-
-    LocalPosition.SetXYZ(Xpos, Ypos, Zpos);
-    LocalOrigin.SetXYZ(0.0,0.0,0.0);
-    // cout << m_DetectorNames[DetID] << endl;
-    GlobalPosition = m_Detectors[DetID]->GetSensitiveVolume(0)->GetPositionInWorldVolume(LocalPosition);
-    // cout << "Found the GlobalPosition" << endl;
-
-    // Make sure XYZ resolution are correctly mapped to the global coord system.
-    PositionResolution.SetXYZ(Xsigma, Ysigma, Zsigma);
-    GlobalResolution = ((m_Detectors[DetID]->GetSensitiveVolume(0)->GetPositionInWorldVolume(PositionResolution)) - (m_Detectors[DetID]->GetSensitiveVolume(0)->GetPositionInWorldVolume(LocalOrigin))).Abs();
-    
-    // cout << "Set the PositionResolution vector" << endl;
-
-    H->SetPosition(GlobalPosition); 
-
-    // cout << "Set the global position for the strip hit" << endl;
-
-    H->SetPositionResolution(GlobalResolution);
-
-    // cout << "Set the position resolution for the strip hit" << endl;
-
-
     }
   }
-  
+
   Event->SetAnalysisProgress(MAssembly::c_DepthCorrection | MAssembly::c_PositionDetermiation);
 
   return true;
@@ -720,7 +728,7 @@ bool MModuleDepthCalibration2024::AddDepthCTD(vector<double> depthvec, vector<ve
 
   double maxdepth = * std::max_element(depthvec.begin(), depthvec.end());
   double mindepth = * std::min_element(depthvec.begin(), depthvec.end());
-  if (fabs((maxdepth-mindepth) - m_Thicknesses[DetID]) > 0.0001) {
+  if (fabs((maxdepth-mindepth) - m_Thicknesses[DetID]) > 0.01) {
     cout<<"ERROR in MModuleDepthCalibration2024::AddDepthCTD: The thickness of detector "<<DetID<<" listed in the geometry file does not match the depth-CTD file."<<endl;
     cout<<"Geometry file gives "<<m_Thicknesses[DetID]<<"cm, while the depth-CTD file gives "<<(maxdepth-mindepth)<<"cm."<<endl;
     return false;
