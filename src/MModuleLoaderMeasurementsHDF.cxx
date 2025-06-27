@@ -444,14 +444,17 @@ bool MModuleLoaderMeasurementsHDF::AnalyzeEvent(MReadOutAssembly* Event)
       H->IsLowVoltageStrip(m_StripMap.IsLowVoltage(StripID));
       H->SetADCUnits(ADCs);
       H->SetTAC(TACs);
-      
+
+
       // Set boolean flags based on HitType and TimingType
       H->IsGuardRing(HitType == 2);
+      if (H->IsGuardRing()) {
+        Event->SetGuardRingVeto(true); }
       H->IsNearestNeighbor(HitType == 1);
       H->HasFastTiming(TimingType == 1);
         
       Event->AddStripHit(H);
-        
+       
     } else {
       if (g_Verbosity >= c_Error) cout<<m_XmlTag<<": Read-out ID "<<StripID<<" not found in strip map"<<endl;
       return false;
