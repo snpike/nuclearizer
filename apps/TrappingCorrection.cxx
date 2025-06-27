@@ -67,8 +67,8 @@ using namespace ROOT::Minuit2;
 
 
 int g_HistBins = 75;
-double g_MinCTD = -200;
-double g_MaxCTD = 200;
+double g_MinCTD = -250;
+double g_MaxCTD = 250;
 double g_MinRatio = 0.94;
 double g_MaxRatio = 1.06;
 
@@ -135,10 +135,8 @@ public:
   
   //! Parse the command line
   bool ParseCommandLine(int argc, char** argv);
-  //! Analyze what eveer needs to be analyzed...
+  //! Analyze what ever needs to be analyzed...
   bool Analyze();
-  //!load cross talk correction
-  vector<vector<vector<float> > > LoadCrossTalk();
   //! Interrupt the analysis
   void Interrupt() { m_Interrupt = true; }
 
@@ -152,17 +150,13 @@ private:
   //! The input file name
   MString m_FileName;
   MString m_EcalFile;
-  MString m_TACFile;
+  MString m_TACCalFile;
+  MString m_TACCutFile;
   //! output file names
   MString m_OutFile;
-  //! energy E0
-  // float m_E0;
-  //! option to correct charge loss or not
-  // bool m_CorrectCL;
   //! option to do a pixel-by-pixel calibration (instead of detector-by-detector)
   bool m_PixelCorrect;
   bool m_GreedyPairing;
-  bool m_CardCageOverride;
 
   double m_MinEnergy;
   double m_MaxEnergy;
@@ -175,9 +169,7 @@ private:
 double SymmetryFCN::operator()(vector<double> const &v) const
 {
   double HVSlope = v[0];
-  double HVIntercept = v[1];
-  double LVSlope = v[2];
-  double LVIntercept = v[3];
+  double LVSlope = v[1];
 
   char name[64]; sprintf(name,"name");
   int HistBins = g_HistBins;
@@ -190,8 +182,8 @@ double SymmetryFCN::operator()(vector<double> const &v) const
     double CTDHVShift = m_CTD[i] + g_MaxCTD;
     double CTDLVShift = m_CTD[i] + g_MinCTD;
     // Correct the HV and LV energies by dividing by the CCE. DeltaCCE is defined as a linear function with units percentage energy lost.
-    double CorrectedHVEnergy = m_HVEnergy[i]/(1 - (HVSlope*CTDHVShift + HVIntercept)/100);
-    double CorrectedLVEnergy = m_LVEnergy[i]/(1 - (LVSlope*CTDLVShift + LVIntercept)/100);
+    double CorrectedHVEnergy = m_HVEnergy[i]/(1 - (HVSlope*CTDHVShift)/100);
+    double CorrectedLVEnergy = m_LVEnergy[i]/(1 - (LVSlope*CTDLVShift)/100);
     CorrectedHistogram.Fill(m_CTD[i], CorrectedHVEnergy/CorrectedLVEnergy);
   }
 
@@ -216,7 +208,7 @@ double SymmetryFCN::operator()(vector<double> const &v) const
     }
   }
 
-  return Asymmetry;
+  return Asymmetry*Asymmetry;
 
 }
 
@@ -226,10 +218,9 @@ double SymmetryFCN::operator()(vector<double> const &v) const
 
 double ChiSquaredFCN::operator()(vector<double> const &v) const
 {
-  double HVSlope = v[0];
-  double HVIntercept = v[1];
+  double HVLVFactor = v[0];
+  double HVSlope = v[1];
   double LVSlope = v[2];
-  double LVIntercept = v[3];
 
   double ChiSquare = 0;
 
@@ -237,8 +228,8 @@ double ChiSquaredFCN::operator()(vector<double> const &v) const
     double CTDHVShift = m_CTD[i] + g_MaxCTD;
     double CTDLVShift = m_CTD[i] + g_MinCTD;
     // Correct the HV and LV energies by dividing by the CCE. DeltaCCE is defined as a linear function with units percentage energy lost.
-    double CorrectedHVEnergy = m_HVEnergy[i]/(1 - (HVSlope*CTDHVShift + HVIntercept)/100);
-    double CorrectedLVEnergy = m_LVEnergy[i]/(1 - (LVSlope*CTDLVShift + LVIntercept)/100);
+    double CorrectedHVEnergy = m_HVEnergy[i]/((1 - (HVSlope*CTDHVShift)/100)*HVLVFactor);
+    double CorrectedLVEnergy = m_LVEnergy[i]/(1 - (LVSlope*CTDLVShift)/100);
 
     ChiSquare += pow(CorrectedHVEnergy - CorrectedLVEnergy, 2)/(m_HVEnergyResolution[i] + m_LVEnergyResolution[i]);
   }
@@ -277,14 +268,15 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
   Usage<<endl;
   Usage<<"  Usage: TrappingCorrection <options>"<<endl;
   Usage<<"    General options:"<<endl;
-  Usage<<"         -i:   input file name (.roa)"<<endl;
-  Usage<<"         --emin:   minimum Event energy"<<endl;
-  Usage<<"         --emax:   maximum Event energy"<<endl;
-  Usage<<"         -t:   TAC calibration file"<<endl;
+  Usage<<"         -i:   input file name (.roa or .txt with list of ROAs)"<<endl;
+  Usage<<"         --emin:   minimum Event energy (default 30 keV)"<<endl;
+  Usage<<"         --emax:   maximum Event energy (default 5000 kev)"<<endl;
+  Usage<<"         -e:   energy calibration file (.ecal)"<<endl;
+  Usage<<"         --tcal:   TAC calibration file"<<endl;
+  Usage<<"         --tcut:   TAC cut file"<<endl;
   Usage<<"         -p:   do pixel-by-pixel correction"<<endl;
   Usage<<"         -g:   greedy strip pairing (default is chi-square)"<<endl;
-  Usage<<"         -c:   Card cage data (i.e. no TAC calibration required)"<<endl;
-  Usage<<"         -o:   outfile (default YYYYMMDDHHMMSS"<<endl;
+  Usage<<"         -o:   outfile (default YYYYMMDDHHMMSS)"<<endl;
   Usage<<"         -h:   print this help"<<endl;
   Usage<<endl;
 
@@ -301,7 +293,7 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
 
   m_PixelCorrect = false;
   m_GreedyPairing = false;
-  m_MinEnergy = 0;
+  m_MinEnergy = 30;
   m_MaxEnergy = 5000;
   
   time_t rawtime;
@@ -320,26 +312,13 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
 
     // First check if each option has sufficient arguments:
     // Single argument
-    if (Option == "-i" || Option == "-e" || Option == "-t" || Option == "-o" || Option == "--emin" || Option == "--emax") {
-      if (!((argc > i+1) && 
-            (argv[i+1][0] != '-' || isalpha(argv[i+1][1]) == 0))){
+    if ((Option == "-i") || (Option == "-o") || (Option == "--emin") || (Option == "--emax") || (Option == "--tcal") || (Option == "--tcut")) {
+      if (!((argc > i+1) && (argv[i+1][0] != '-' || isalpha(argv[i+1][1]) == 0))){
         cout<<"Error: Option "<<argv[i][1]<<" needs a second argument!"<<endl;
         cout<<Usage.str()<<endl;
         return false;
       }
     } 
-    // Multiple arguments template
-    /*
-    else if (Option == "-??") {
-      if (!((argc > i+2) && 
-            (argv[i+1][0] != '-' || isalpha(argv[i+1][1]) == 0) && 
-            (argv[i+2][0] != '-' || isalpha(argv[i+2][1]) == 0))){
-        cout<<"Error: Option "<<argv[i][1]<<" needs two arguments!"<<endl;
-        cout<<Usage.str()<<endl;
-        return false;
-      }
-    }
-    */
 
     // Then fulfill the options:
     if (Option == "-i") {
@@ -360,18 +339,19 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
       m_MaxEnergy = stod(argv[++i]);
     } 
 
-    if (Option == "-t") {
-      m_TACFile = argv[++i];
-      cout<<"Accepting file name: "<<m_TACFile<<endl;
+    if (Option == "--tcal") {
+      m_TACCalFile = argv[++i];
+      cout<<"Accepting file name: "<<m_TACCalFile<<endl;
+    } 
+
+    if (Option == "--tcut") {
+      m_TACCutFile = argv[++i];
+      cout<<"Accepting file name: "<<m_TACCutFile<<endl;
     } 
 
     if (Option == "-o"){
       m_OutFile = argv[++i];
       cout<<"Accepting file name: "<<m_OutFile<<endl;
-    }
-
-    if (Option == "-c"){
-      m_CardCageOverride = true;
     }
 
     if (Option == "-p"){
@@ -394,179 +374,178 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
 //! Do whatever analysis is necessary
 bool TrappingCorrection::Analyze()
 {
-
-/*  TH2D* h2 = new TH2D("fracmap","fracmap",356*2,-356,356,35,356-30,356+5);
-//  for (int i=-662; i<662; i++){
-//    for (int j=662-30; j<662+5; j++){
-  for (int i=0; i<356*2; i++){
-    for (int j=0; j<35; j++){
-      float c = ((float)i-356)/((float)j+356-30);
-      cout<<c<<endl;
-      h2->SetBinContent(i,j,c);
-    }
-  }
-  TCanvas *ctemp = new TCanvas();
-  h2->Draw("colz");
-  ctemp->Print("frac_map.pdf");
-*/  
   //time code just to see
   TStopwatch watch;
   watch.Start();
 
   if (m_Interrupt == true) return false;
 
-  MSupervisor* S = MSupervisor::GetSupervisor();
-  
-	MModuleLoaderMeasurementsROA* Loader;
-	MModuleTACcut* TACCalibrator;
-	MModuleEnergyCalibrationUniversal* EnergyCalibrator;
-	MModuleEventFilter* EventFilter;
+  vector<MString> FileNames;
 
-  unsigned int MNumber = 0;
-  cout<<"Creating ROA loader"<<endl;
-  Loader = new MModuleLoaderMeasurementsROA();
-  Loader->SetFileName(m_FileName);
-  S->SetModule(Loader, MNumber);
-  ++MNumber;
-
-  if (m_CardCageOverride==false) {
-	  cout<<"Creating TAC calibrator"<<endl;
-	  TACCalibrator = new MModuleTACcut();
-	  TACCalibrator->SetTACCalFileName(m_TACFile);
-	  S->SetModule(TACCalibrator, MNumber);
-	  ++MNumber;
-  }
- 
-  cout<<"Creating energy calibrator"<<endl;
-  EnergyCalibrator = new MModuleEnergyCalibrationUniversal();
-  EnergyCalibrator->SetFileName(m_EcalFile);
-  EnergyCalibrator->EnablePreampTempCorrection(false);
-  S->SetModule(EnergyCalibrator, MNumber);
-  ++MNumber;
-
-  cout<<"Creating Event filter"<<endl;
-  //! Only use events with 1 Strip Hit on each side to avoid strip pairing complications
-  EventFilter = new MModuleEventFilter();
-  EventFilter->SetMinimumLVStrips(1);
-  EventFilter->SetMaximumLVStrips(1);
-  EventFilter->SetMinimumHVStrips(1);
-  EventFilter->SetMaximumHVStrips(1);
-  EventFilter->SetMinimumTotalEnergy(m_MinEnergy);
-  EventFilter->SetMaximumTotalEnergy(m_MaxEnergy);
-  S->SetModule(EventFilter, MNumber);
-  ++MNumber;
-  
-  cout<<"Creating strip pairing"<<endl;
-  MModule* Pairing;
-  if (m_GreedyPairing == true){
-    // Pairing = dynamic_cast<MModuleStripPairingChiSquare*>(Pairing);
-    Pairing = new MModuleStripPairingGreedy();
-  }
-  else {
-    // Pairing = dynamic_cast<MModuleStripPairingChiSquare*>(Pairing);
-    Pairing = new MModuleStripPairingChiSquare();
-  }
-  S->SetModule(Pairing, MNumber);
-
-  cout<<"Initializing Loader"<<endl;
-  if (Loader->Initialize() == false) return false;
-  if (m_CardCageOverride==false) {
-  	cout<<"Initializing TAC calibrator"<<endl;
-  	if (TACCalibrator->Initialize() == false) return false;
-  }
-  cout<<"Initializing Energy calibrator"<<endl;
-  if (EnergyCalibrator->Initialize() == false) return false;
-  cout<<"Initializing Event filter"<<endl;
-  if (EventFilter->Initialize() == false) return false;
-  cout<<"Initializing Pairing"<<endl;
-  if (Pairing->Initialize() == false) return false;
-
-  map<int, TH2D*> Histograms;
-  map<int, SymmetryFCN*> FCNs;
-
-  bool IsFinished = false;
-  MReadOutAssembly* Event = new MReadOutAssembly();
-
-  cout<<"Analyzing..."<<endl;
-  while (IsFinished == false && m_Interrupt == false) {
-    Event->Clear();
-
-    if (Loader->IsReady() ){
-      Loader->AnalyzeEvent(Event);
-
-      if (m_CardCageOverride==false) {
-      	TACCalibrator->AnalyzeEvent(Event);
-      }
-
-      EnergyCalibrator->AnalyzeEvent(Event);
-      bool Unfiltered = EventFilter->AnalyzeEvent(Event);
-      Pairing->AnalyzeEvent(Event);
-
-      if ((Event->HasAnalysisProgress(MAssembly::c_StripPairing) == true) && (Unfiltered==true)) {
-        for (unsigned int h = 0; h < Event->GetNHits(); ++h) {
-          double HVEnergy = 0.0;
-          double LVEnergy = 0.0;
-          double HVEnergyResolution = 0.0;
-          double LVEnergyResolution = 0.0;
-          vector<MStripHit*> HVStrips;
-          vector<MStripHit*> LVStrips;
-
-          MHit* H = Event->GetHit(h);
-          
-          int DetID = H->GetStripHit(0)->GetDetectorID();
-          TH2D* Hist = Histograms[DetID];
-          SymmetryFCN* FCN = FCNs[DetID]; 
-          
-          if (Hist == nullptr) {
-            char name[64]; sprintf(name,"Detector %d (Uncorrected)",DetID);
-            Hist = new TH2D(name, name, g_HistBins, g_MinCTD, g_MaxCTD, g_HistBins, g_MinRatio, g_MaxRatio);
-            Hist->SetXTitle("CTD (ns)");
-            Hist->SetYTitle("HV/LV Energy Ratio");
-            Histograms[DetID] = Hist;
-          }
-
-          if (FCN == nullptr) {
-            FCN = new SymmetryFCN();
-            FCNs[DetID] = FCN;
-          }
-
-          for (unsigned int sh = 0; sh < H->GetNStripHits(); ++sh) {
-            MStripHit* SH = H->GetStripHit(sh);
-
-            if (SH->IsLowVoltageStrip()==true) {
-              LVEnergy += SH->GetEnergy();
-              LVEnergyResolution += (SH->GetEnergyResolution())*(SH->GetEnergyResolution());
-              LVStrips.push_back(SH);
-            } else {
-              HVEnergy += SH->GetEnergy();
-              HVEnergyResolution += (SH->GetEnergyResolution())*(SH->GetEnergyResolution());
-              HVStrips.push_back(SH);
-            }
-          }
-
-          double HVEnergyFraction = 0;
-          double LVEnergyFraction = 0;
-          MStripHit* HVSH = GetDominantStrip(HVStrips, HVEnergyFraction); 
-          MStripHit* LVSH = GetDominantStrip(LVStrips, LVEnergyFraction); 
-          double EnergyFraction = HVEnergy/LVEnergy;
-          double CTD = LVSH->GetTiming() - HVSH->GetTiming();
-          if (m_CardCageOverride == true) {
-            CTD *= -1;
-          }
-          Hist->Fill(CTD, EnergyFraction);
-          FCN->AddCTD(CTD);
-          FCN->AddHVEnergy(HVEnergy, HVEnergyResolution);
-          FCN->AddLVEnergy(LVEnergy, LVEnergyResolution);
-        }
+  if ((m_FileName.GetSubString(m_FileName.Length() - 3)) == "roa"){
+    FileNames.push_back(m_FileName);
+  } else if ((m_FileName.GetSubString(m_FileName.Length() - 3)) == "txt") {
+    MFile F;
+    if (F.Open(m_FileName)==false) {
+      cout<<"Error: Failed to open input file."<<endl;
+    } else {
+      MString Line;
+      while (F.ReadLine(Line)) {
+        FileNames.push_back(Line.Trim());
       }
     }
-    IsFinished = Loader->IsFinished();
+  }
+
+  map<unsigned int, TH2D*> Histograms;
+  map<unsigned int, SymmetryFCN*> FCNs;
+
+  for (unsigned int f = 0; f<FileNames.size(); ++f) {
+
+    MString ROAFile = FileNames[f];
+
+    cout<<"Beginning analysis of file "<<ROAFile<<endl;
+
+    MSupervisor* S = MSupervisor::GetSupervisor();
+    
+  	MModuleLoaderMeasurementsROA* Loader;
+  	MModuleTACcut* TACCalibrator;
+  	MModuleEnergyCalibrationUniversal* EnergyCalibrator;
+  	MModuleEventFilter* EventFilter;
+
+    unsigned int MNumber = 0;
+    cout<<"Creating ROA loader"<<endl;
+    Loader = new MModuleLoaderMeasurementsROA();
+    Loader->SetFileName(ROAFile);
+    S->SetModule(Loader, MNumber);
+    ++MNumber;
+
+    cout<<"Creating TAC calibrator"<<endl;
+    TACCalibrator = new MModuleTACcut();
+    TACCalibrator->SetTACCalFileName(m_TACCalFile);
+    TACCalibrator->SetTACCutFileName(m_TACCutFile);
+    S->SetModule(TACCalibrator, MNumber);
+    ++MNumber;
+   
+    cout<<"Creating energy calibrator"<<endl;
+    EnergyCalibrator = new MModuleEnergyCalibrationUniversal();
+    EnergyCalibrator->SetFileName(m_EcalFile);
+    EnergyCalibrator->EnablePreampTempCorrection(false);
+    S->SetModule(EnergyCalibrator, MNumber);
+    ++MNumber;
+
+    cout<<"Creating Event filter"<<endl;
+    //! Only use events with 1 Strip Hit on each side to avoid strip pairing complications
+    EventFilter = new MModuleEventFilter();
+    EventFilter->SetMinimumLVStrips(1);
+    EventFilter->SetMaximumLVStrips(1);
+    EventFilter->SetMinimumHVStrips(1);
+    EventFilter->SetMaximumHVStrips(1);
+    EventFilter->SetMinimumHits(0);
+    EventFilter->SetMaximumHits(3);
+    EventFilter->SetMinimumTotalEnergy(m_MinEnergy);
+    EventFilter->SetMaximumTotalEnergy(m_MaxEnergy);
+    S->SetModule(EventFilter, MNumber);
+    ++MNumber;
+    
+    cout<<"Creating strip pairing"<<endl;
+    MModule* Pairing;
+    if (m_GreedyPairing == true){
+      Pairing = new MModuleStripPairingGreedy();
+    }
+    else {
+      Pairing = new MModuleStripPairingChiSquare();
+    }
+    S->SetModule(Pairing, MNumber);
+
+    cout<<"Initializing Loader"<<endl;
+    if (Loader->Initialize() == false) return false;
+    cout<<"Initializing TAC calibrator"<<endl;
+    if (TACCalibrator->Initialize() == false) return false;
+    cout<<"Initializing Energy calibrator"<<endl;
+    if (EnergyCalibrator->Initialize() == false) return false;
+    cout<<"Initializing Event filter"<<endl;
+    if (EventFilter->Initialize() == false) return false;
+    cout<<"Initializing Pairing"<<endl;
+    if (Pairing->Initialize() == false) return false;
+
+    bool IsFinished = false;
+    MReadOutAssembly* Event = new MReadOutAssembly();
+
+    cout<<"Analyzing..."<<endl;
+    while ((IsFinished == false) && (m_Interrupt == false)) {
+      Event->Clear();
+
+      if (Loader->IsReady()){
+
+        Loader->AnalyzeEvent(Event);
+        TACCalibrator->AnalyzeEvent(Event);
+        EnergyCalibrator->AnalyzeEvent(Event);
+        bool Unfiltered = EventFilter->AnalyzeEvent(Event);
+        Pairing->AnalyzeEvent(Event);
+
+        if ((Event->HasAnalysisProgress(MAssembly::c_StripPairing) == true) && (Unfiltered==true)) {
+          for (unsigned int h = 0; h < Event->GetNHits(); ++h) {
+            double HVEnergy = 0.0;
+            double LVEnergy = 0.0;
+            double HVEnergyResolution = 0.0;
+            double LVEnergyResolution = 0.0;
+            vector<MStripHit*> HVStrips;
+            vector<MStripHit*> LVStrips;
+
+            MHit* H = Event->GetHit(h);
+            
+            int DetID = H->GetStripHit(0)->GetDetectorID();
+            TH2D* Hist = Histograms[DetID];
+            SymmetryFCN* FCN = FCNs[DetID]; 
+            
+            if (Hist == nullptr) {
+              char name[64]; sprintf(name,"Detector %d (Uncorrected)",DetID);
+              Hist = new TH2D(name, name, g_HistBins, g_MinCTD, g_MaxCTD, g_HistBins, g_MinRatio, g_MaxRatio);
+              Hist->SetXTitle("CTD (ns)");
+              Hist->SetYTitle("HV/LV Energy Ratio");
+              Histograms[DetID] = Hist;
+            }
+
+            if (FCN == nullptr) {
+              FCN = new SymmetryFCN();
+              FCNs[DetID] = FCN;
+            }
+
+            for (unsigned int sh = 0; sh < H->GetNStripHits(); ++sh) {
+              MStripHit* SH = H->GetStripHit(sh);
+
+              if (SH->IsLowVoltageStrip()==true) {
+                LVEnergy += SH->GetEnergy();
+                LVEnergyResolution += (SH->GetEnergyResolution())*(SH->GetEnergyResolution());
+                LVStrips.push_back(SH);
+              } else {
+                HVEnergy += SH->GetEnergy();
+                HVEnergyResolution += (SH->GetEnergyResolution())*(SH->GetEnergyResolution());
+                HVStrips.push_back(SH);
+              }
+            }
+
+            double HVEnergyFraction = 0;
+            double LVEnergyFraction = 0;
+            MStripHit* HVSH = GetDominantStrip(HVStrips, HVEnergyFraction); 
+            MStripHit* LVSH = GetDominantStrip(LVStrips, LVEnergyFraction); 
+            double EnergyFraction = HVEnergy/LVEnergy;
+            double CTD = LVSH->GetTiming() - HVSH->GetTiming();
+            Hist->Fill(CTD, EnergyFraction);
+            FCN->AddCTD(CTD);
+            FCN->AddHVEnergy(HVEnergy, HVEnergyResolution);
+            FCN->AddLVEnergy(LVEnergy, LVEnergyResolution);
+          }
+        }
+      }
+      IsFinished = Loader->IsFinished();
+    }
   }
 
   //setup output file
   ofstream OutputCalFile;
   OutputCalFile.open(m_OutFile+MString("_parameters.txt"));
-  OutputCalFile<<"Det"<<'\t'<<"HV Slope"<<'\t'<<"HV Intercept"<<'\t'<<"LV Slope"<<'\t'<<"LV Intercept"<<endl<<endl;
+  OutputCalFile<<"Det"<<'\t'<<"HV Slope"<<'\t'<<"LV Slope"<<'\t'<<"HV/LV Factor"<<endl<<endl;
 
   for (auto H: Histograms) {
     
@@ -587,55 +566,44 @@ bool TrappingCorrection::Analyze()
 
     int DetID = F.first;
     MnUserParameters* InitialStateSym = new MnUserParameters();
-    InitialStateSym->Add("HVSlope", 1e-3, 1e-4, 0, 3e-1);
-    InitialStateSym->Add("HVIntercept", 0, 0.01, -2, 2);
+    InitialStateSym->Add("HVSlope", 2e-3, 1e-4, 0, 3e-1);
     InitialStateSym->Add("LVSlope", 0, 1e-4, -3e-2, 0);
-    InitialStateSym->Add("LVIntercept", 0, 0.01, -2, 2);
 
     InitialStateSym->Fix("LVSlope");
-    InitialStateSym->Fix("LVIntercept");
-    InitialStateSym->Fix("HVIntercept");
-
 
     MnMigrad migradSym(*F.second, *InitialStateSym);
      // Minimize
     FunctionMinimum MinimumSym = migradSym();
 
     MnUserParameters ParametersSym = MinimumSym.UserParameters();
-    // double HVSlope = ParametersSym.Value("HVSlope");
-    // double HVIntercept = ParametersSym.Value("HVIntercept");
-    // double LVSlope = ParametersSym.Value("LVSlope");
-    // double LVIntercept = ParametersSym.Value("LVIntercept");
+    double HVSlope = ParametersSym.Value("HVSlope");
+    double LVSlope = ParametersSym.Value("LVSlope");
 
     // output
     cout<<MinimumSym<<endl;
 
-    MnUserParameters* InitialStateChi = new MnUserParameters();
-    InitialStateChi->Add("HVSlope", ParametersSym.Value("HVSlope"), ParametersSym.Error("HVSlope"));
-    InitialStateChi->Add("HVIntercept", 0, 0.01, -2, 2);
-    InitialStateChi->Add("LVSlope", 0, 1e-4, -3e-2, 0);
-    InitialStateChi->Add("LVIntercept", 0, 0.01, -2, 2);
+    // MnUserParameters* InitialStateChi = new MnUserParameters();
+    // InitialStateChi->Add("HVLVFactor", 1.0, 0.01, 0.95, 1.05);
+    // InitialStateChi->Add("HVSlope", ParametersSym.Value("HVSlope"), ParametersSym.Error("HVSlope"));
+    // InitialStateChi->Add("LVSlope", ParametersSym.Value("LVSlope"), ParametersSym.Error("LVSlope"));
 
-    InitialStateChi->Fix("LVSlope");
-    InitialStateChi->Fix("LVIntercept");
-    InitialStateChi->Fix("HVSlope");
+    // InitialStateChi->Fix("HVSlope");
+    // InitialStateChi->Fix("LVSlope");
 
 
-    ChiSquaredFCN* ChiSquaredF = new ChiSquaredFCN();
-    ChiSquaredF->SetCTD(F.second->GetCTD());
-    ChiSquaredF->SetHVEnergy(F.second->GetHVEnergy(), F.second->GetHVEnergyResolution());
-    ChiSquaredF->SetLVEnergy(F.second->GetLVEnergy(), F.second->GetLVEnergyResolution());
-    MnMigrad migradChi(*ChiSquaredF, *InitialStateChi);
-     // Minimize
-    FunctionMinimum MinimumChi = migradChi();
+    // ChiSquaredFCN* ChiSquaredF = new ChiSquaredFCN();
+    // ChiSquaredF->SetCTD(F.second->GetCTD());
+    // ChiSquaredF->SetHVEnergy(F.second->GetHVEnergy(), F.second->GetHVEnergyResolution());
+    // ChiSquaredF->SetLVEnergy(F.second->GetLVEnergy(), F.second->GetLVEnergyResolution());
+    // MnMigrad migradChi(*ChiSquaredF, *InitialStateChi);
+    //  // Minimize
+    // FunctionMinimum MinimumChi = migradChi();
 
-    MnUserParameters ParametersChi = MinimumChi.UserParameters();
-    double HVSlope = ParametersChi.Value("HVSlope");
-    double HVIntercept = ParametersChi.Value("HVIntercept");
-    double LVSlope = ParametersChi.Value("LVSlope");
-    double LVIntercept = ParametersChi.Value("LVIntercept");
-    // output
-    cout<<MinimumChi<<endl;
+    // MnUserParameters ParametersChi = MinimumChi.UserParameters();
+    // double HVLVFactor = ParametersChi.Value("HVLVFactor");
+    double HVLVFactor = 1;
+    // // output
+    // cout<<MinimumChi<<endl;
 
     char name[64]; sprintf(name,"Detector %d (Corrected)",DetID);
     TH2D* Hist = new TH2D(name, name, g_HistBins, g_MinCTD, g_MaxCTD, g_HistBins, g_MinRatio, g_MaxRatio);
@@ -650,8 +618,8 @@ bool TrappingCorrection::Analyze()
       double CTDHVShift = CTDList[i] + g_MaxCTD;
       double CTDLVShift = CTDList[i] + g_MinCTD;
       // Correct the HV and LV energies by dividing by the CCE. DeltaCCE is defined as a linear function with units percentage energy lost.
-      double CorrectedHVEnergy = HVEnergyList[i]/(1 - (HVSlope*CTDHVShift + HVIntercept)/100);
-      double CorrectedLVEnergy = LVEnergyList[i]/(1 - (LVSlope*CTDLVShift + LVIntercept)/100);
+      double CorrectedHVEnergy = HVEnergyList[i]/((1 - (HVSlope*CTDHVShift)/100)*HVLVFactor);
+      double CorrectedLVEnergy = LVEnergyList[i]/(1 - (LVSlope*CTDLVShift)/100);
       
       Hist->Fill(CTDList[i], CorrectedHVEnergy/CorrectedLVEnergy);
     }
@@ -665,7 +633,7 @@ bool TrappingCorrection::Analyze()
     Hist->Write();
     f.Close();
 
-    OutputCalFile<<to_string(DetID)<<'\t'<<to_string(HVSlope)<<'\t'<<to_string(HVIntercept)<<'\t'<<to_string(LVSlope)<<'\t'<<to_string(LVIntercept)<<endl<<endl;
+    OutputCalFile<<to_string(DetID)<<'\t'<<to_string(HVSlope)<<'\t'<<to_string(LVSlope)<<'\t'<<to_string(HVLVFactor)<<endl<<endl;
 
   }
   OutputCalFile.close();
