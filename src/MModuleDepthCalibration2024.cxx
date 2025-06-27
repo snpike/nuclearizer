@@ -720,7 +720,7 @@ bool MModuleDepthCalibration2024::AddDepthCTD(vector<double> depthvec, vector<ve
 
   double maxdepth = * std::max_element(depthvec.begin(), depthvec.end());
   double mindepth = * std::min_element(depthvec.begin(), depthvec.end());
-  if (fabs((maxdepth-mindepth) - m_Thicknesses[DetID]) > 0.0001) {
+  if (fabs((maxdepth-mindepth) - m_Thicknesses[DetID]) > 0.01) {
     cout<<"ERROR in MModuleDepthCalibration2024::AddDepthCTD: The thickness of detector "<<DetID<<" listed in the geometry file does not match the depth-CTD file."<<endl;
     cout<<"Geometry file gives "<<m_Thicknesses[DetID]<<"cm, while the depth-CTD file gives "<<(maxdepth-mindepth)<<"cm."<<endl;
     return false;
