@@ -81,7 +81,7 @@ MModuleTACcut::MModuleTACcut() : MModule()
   m_AllowMultiThreading = true;
 
   // Can we use multiple instances of this class
-  m_AllowMultipleInstances = false;
+  m_AllowMultipleInstances = true;
 
   m_SideToIndex = {{'l', 0}, {'h', 1}, {'0', 0}, {'1', 1}, {'p', 0}, {'n', 1}};
 }
