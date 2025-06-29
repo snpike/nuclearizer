@@ -147,6 +147,7 @@ bool MModuleLoaderMeasurementsHDF::OpenHDF5File(MString FileName)
 {
   try { // HDF5 throws exceptions, thus need to encapsulate everything in try..catch
 
+    MFile::ExpandFileName(FileName);
     m_HDFFile = H5File(FileName, H5F_ACC_RDONLY);
 
     // ToDo: Check for version.
@@ -329,8 +330,11 @@ bool MModuleLoaderMeasurementsHDF::AnalyzeEvent(MReadOutAssembly* Event)
   // Main data analysis routine, which updates the event to a new level:
   // Here: Just read it.
 
+  bool IsZeroDataBug = false;
+
   unsigned int NStripHits = 1;
-  for (unsigned int s = 0; s < NStripHits; ++s) {
+  unsigned int StripHitIndex = 0;
+  while (StripHitIndex < NStripHits) {
 
     // First step is to check if we have events left in the file:
     if (m_CurrentHit >= m_TotalHits) {
@@ -360,7 +364,7 @@ bool MModuleLoaderMeasurementsHDF::AnalyzeEvent(MReadOutAssembly* Event)
       }
     }
 
-    // Second step is to check is we have events left in the batch
+    // Second step is to check if we have events left in the batch
     if (m_CurrentBatchIndex >= m_CurrentBatchSize) {
       if (ReadBatchHits() == false) {
         return false;
@@ -423,6 +427,23 @@ bool MModuleLoaderMeasurementsHDF::AnalyzeEvent(MReadOutAssembly* Event)
       cout<<" TimingType: "<<TimingType<<endl;
     }
 
+    // Catch a bug in the HDF5 data
+    if (EventID == 0 && StripID == 0 && ADCs == 0) {
+      IsZeroDataBug = true;
+      if (g_Verbosity >= c_Error) cout<<m_XmlTag<<": ZERO-DATA-BUG: Found empty data set. Ignoring event."<<endl;
+      continue;
+    } else {
+      if (IsZeroDataBug == true) { // We are now out of the bug and need to recover
+        // Clear the strip hits - everything else gets overwritten later
+        while (Event->GetNStripHits() > 0) {
+          MStripHit* H = Event->GetStripHit(0);
+          delete H;
+          Event->RemoveStripHit(0);
+        }
+      }
+      IsZeroDataBug = false;
+    }
+
     if (EventID < m_LastEventID) {
       m_NumberOfEventIDRollOvers++;
     }
@@ -448,8 +469,9 @@ bool MModuleLoaderMeasurementsHDF::AnalyzeEvent(MReadOutAssembly* Event)
 
       // Set boolean flags based on HitType and TimingType
       H->IsGuardRing(HitType == 2);
-      if (H->IsGuardRing()) {
-        Event->SetGuardRingVeto(true); }
+      if (H->IsGuardRing() == true) {
+        Event->SetGuardRingVeto(true);
+      }
       H->IsNearestNeighbor(HitType == 1);
       H->HasFastTiming(TimingType == 1);
         
@@ -461,6 +483,7 @@ bool MModuleLoaderMeasurementsHDF::AnalyzeEvent(MReadOutAssembly* Event)
     }
 
     NStripHits = static_cast<unsigned int>(NumberOfHits);
+    StripHitIndex++;
   }
 
   Event->SetAnalysisProgress(MAssembly::c_EventLoader | MAssembly::c_EventLoaderMeasurement);
