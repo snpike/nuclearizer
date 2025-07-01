@@ -71,8 +71,8 @@ using namespace ROOT::Minuit2;
 int g_HistBins = 75;
 double g_MinCTD = -250;
 double g_MaxCTD = 250;
-double g_MinRatio = 0.94;
-double g_MaxRatio = 1.06;
+double g_MinRatio = 0.96;
+double g_MaxRatio = 1.04;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -297,7 +297,7 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
 
   m_PixelCorrect = false;
   m_GreedyPairing = false;
-  m_MinEnergy = 30;
+  m_MinEnergy = 40;
   m_MaxEnergy = 5000;
   
   time_t rawtime;
@@ -455,11 +455,11 @@ bool TrappingCorrection::Analyze()
     //! Only use events with 1 Strip Hit on each side to avoid strip pairing complications
     EventFilter = new MModuleEventFilter();
     EventFilter->SetMinimumLVStrips(1);
-    EventFilter->SetMaximumLVStrips(1);
+    EventFilter->SetMaximumLVStrips(3);
     EventFilter->SetMinimumHVStrips(1);
-    EventFilter->SetMaximumHVStrips(1);
+    EventFilter->SetMaximumHVStrips(3);
     EventFilter->SetMinimumHits(0);
-    EventFilter->SetMaximumHits(3);
+    EventFilter->SetMaximumHits(100);
     EventFilter->SetMinimumTotalEnergy(m_MinEnergy);
     EventFilter->SetMaximumTotalEnergy(m_MaxEnergy);
     S->SetModule(EventFilter, MNumber);
@@ -481,9 +481,9 @@ bool TrappingCorrection::Analyze()
     if (TACCalibrator->Initialize() == false) return false;
     cout<<"Initializing Energy calibrator"<<endl;
     if (EnergyCalibrator->Initialize() == false) return false;
+    cout<<"Initializing Pairing"<<endl;
     cout<<"Initializing Event filter"<<endl;
     if (EventFilter->Initialize() == false) return false;
-    cout<<"Initializing Pairing"<<endl;
     if (Pairing->Initialize() == false) return false;
 
     bool IsFinished = false;
@@ -499,60 +499,68 @@ bool TrappingCorrection::Analyze()
         TACCalibrator->AnalyzeEvent(Event);
         EnergyCalibrator->AnalyzeEvent(Event);
         bool Unfiltered = EventFilter->AnalyzeEvent(Event);
-        Pairing->AnalyzeEvent(Event);
 
-        if ((Event->HasAnalysisProgress(MAssembly::c_StripPairing) == true) && (Unfiltered==true)) {
-          for (unsigned int h = 0; h < Event->GetNHits(); ++h) {
-            double HVEnergy = 0.0;
-            double LVEnergy = 0.0;
-            double HVEnergyResolution = 0.0;
-            double LVEnergyResolution = 0.0;
-            vector<MStripHit*> HVStrips;
-            vector<MStripHit*> LVStrips;
+        if (Unfiltered == true) {
+          
+          Pairing->AnalyzeEvent(Event);
 
-            MHit* H = Event->GetHit(h);
-            
-            int DetID = H->GetStripHit(0)->GetDetectorID();
-            TH2D* Hist = Histograms[DetID];
-            SymmetryFCN* FCN = FCNs[DetID]; 
-            
-            if (Hist == nullptr) {
-              char name[64]; sprintf(name,"Detector %d (Uncorrected)",DetID);
-              Hist = new TH2D(name, name, g_HistBins, g_MinCTD, g_MaxCTD, g_HistBins, g_MinRatio, g_MaxRatio);
-              Hist->SetXTitle("CTD (ns)");
-              Hist->SetYTitle("HV/LV Energy Ratio");
-              Histograms[DetID] = Hist;
-            }
+          if (Event->HasAnalysisProgress(MAssembly::c_StripPairing) == true) {
+            for (unsigned int h = 0; h < Event->GetNHits(); ++h) {
+              double HVEnergy = 0.0;
+              double LVEnergy = 0.0;
+              double HVEnergyResolution = 0.0;
+              double LVEnergyResolution = 0.0;
+              vector<MStripHit*> HVStrips;
+              vector<MStripHit*> LVStrips;
 
-            if (FCN == nullptr) {
-              FCN = new SymmetryFCN();
-              FCNs[DetID] = FCN;
-            }
+              MHit* H = Event->GetHit(h);
+              
+              int DetID = H->GetStripHit(0)->GetDetectorID();
+              TH2D* Hist = Histograms[DetID];
+              SymmetryFCN* FCN = FCNs[DetID]; 
+              
+              if (Hist == nullptr) {
+                char name[64]; sprintf(name,"Detector %d (Uncorrected)",DetID);
+                Hist = new TH2D(name, name, g_HistBins, g_MinCTD, g_MaxCTD, g_HistBins, g_MinRatio, g_MaxRatio);
+                Hist->SetXTitle("CTD (ns)");
+                Hist->SetYTitle("HV/LV Energy Ratio");
+                Histograms[DetID] = Hist;
+              }
 
-            for (unsigned int sh = 0; sh < H->GetNStripHits(); ++sh) {
-              MStripHit* SH = H->GetStripHit(sh);
+              if (FCN == nullptr) {
+                FCN = new SymmetryFCN();
+                FCNs[DetID] = FCN;
+              }
 
-              if (SH->IsLowVoltageStrip()==true) {
-                LVEnergy += SH->GetEnergy();
-                LVEnergyResolution += (SH->GetEnergyResolution())*(SH->GetEnergyResolution());
-                LVStrips.push_back(SH);
-              } else {
-                HVEnergy += SH->GetEnergy();
-                HVEnergyResolution += (SH->GetEnergyResolution())*(SH->GetEnergyResolution());
-                HVStrips.push_back(SH);
+              for (unsigned int sh = 0; sh < H->GetNStripHits(); ++sh) {
+                MStripHit* SH = H->GetStripHit(sh);
+
+                if (SH->IsLowVoltageStrip()==true) {
+                  LVEnergy += SH->GetEnergy();
+                  LVEnergyResolution += (SH->GetEnergyResolution())*(SH->GetEnergyResolution());
+                  LVStrips.push_back(SH);
+                } else {
+                  HVEnergy += SH->GetEnergy();
+                  HVEnergyResolution += (SH->GetEnergyResolution())*(SH->GetEnergyResolution());
+                  HVStrips.push_back(SH);
+                }
+              }
+
+              if ((HVStrips.size()>0) && (LVStrips.size()>0)) {
+                double HVEnergyFraction = 0;
+                double LVEnergyFraction = 0;
+                MStripHit* HVSH = GetDominantStrip(HVStrips, HVEnergyFraction); 
+                MStripHit* LVSH = GetDominantStrip(LVStrips, LVEnergyFraction); 
+                double EnergyFraction = HVEnergy/LVEnergy;
+                if ((LVSH->HasCalibratedTiming()==true) && (HVSH->HasCalibratedTiming()==true)) {
+                  double CTD = LVSH->GetTiming() - HVSH->GetTiming();
+                  Hist->Fill(CTD, EnergyFraction);
+                  FCN->AddCTD(CTD);
+                  FCN->AddHVEnergy(HVEnergy, HVEnergyResolution);
+                  FCN->AddLVEnergy(LVEnergy, LVEnergyResolution);
+                }
               }
             }
-
-            double HVEnergyFraction = 0;
-            double LVEnergyFraction = 0;
-            MStripHit* HVSH = GetDominantStrip(HVStrips, HVEnergyFraction); 
-            MStripHit* LVSH = GetDominantStrip(LVStrips, LVEnergyFraction); 
-            double EnergyFraction = HVEnergy/LVEnergy;
-            double CTD = LVSH->GetTiming() - HVSH->GetTiming();
-            Hist->Fill(CTD, EnergyFraction);
-            FCN->AddCTD(CTD);
-            FCN->AddHVEnergy(HVEnergy, HVEnergyResolution);
-            FCN->AddLVEnergy(LVEnergy, LVEnergyResolution);
           }
         }
       }
