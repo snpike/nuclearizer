@@ -481,9 +481,9 @@ bool TrappingCorrection::Analyze()
     if (TACCalibrator->Initialize() == false) return false;
     cout<<"Initializing Energy calibrator"<<endl;
     if (EnergyCalibrator->Initialize() == false) return false;
-    cout<<"Initializing Pairing"<<endl;
     cout<<"Initializing Event filter"<<endl;
     if (EventFilter->Initialize() == false) return false;
+    cout<<"Initializing Pairing"<<endl;
     if (Pairing->Initialize() == false) return false;
 
     bool IsFinished = false;
