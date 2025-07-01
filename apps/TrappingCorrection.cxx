@@ -57,7 +57,9 @@ using namespace ROOT::Minuit2;
 #include "MStripHit.h"
 #include "MReadOutSequence.h"
 #include "MSupervisor.h"
+#include "MModuleLoaderMeasurements.h"
 #include "MModuleLoaderMeasurementsROA.h"
+#include "MModuleLoaderMeasurementsHDF.h"
 #include "MModuleEnergyCalibrationUniversal.h"
 #include "MModuleEventFilter.h"
 #include "MModuleStripPairingGreedy.h"
@@ -152,6 +154,7 @@ private:
   MString m_EcalFile;
   MString m_TACCalFile;
   MString m_TACCutFile;
+  MString m_StripMapFile;
   //! output file names
   MString m_OutFile;
   //! option to do a pixel-by-pixel calibration (instead of detector-by-detector)
@@ -268,13 +271,14 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
   Usage<<endl;
   Usage<<"  Usage: TrappingCorrection <options>"<<endl;
   Usage<<"    General options:"<<endl;
-  Usage<<"         -i:   input file name (.roa or .txt with list of ROAs)"<<endl;
+  Usage<<"         -i:   input file name (.hdf5 or .txt with list of hdf5s)"<<endl;
   Usage<<"         --emin:   minimum Event energy (default 30 keV)"<<endl;
   Usage<<"         --emax:   maximum Event energy (default 5000 kev)"<<endl;
   Usage<<"         -e:   energy calibration file (.ecal)"<<endl;
   Usage<<"         --tcal:   TAC calibration file"<<endl;
   Usage<<"         --tcut:   TAC cut file"<<endl;
   Usage<<"         -p:   do pixel-by-pixel correction"<<endl;
+  Usage<<"         -m:   strip map file name (.map)"<<endl;
   Usage<<"         -g:   greedy strip pairing (default is chi-square)"<<endl;
   Usage<<"         -o:   outfile (default YYYYMMDDHHMMSS)"<<endl;
   Usage<<"         -h:   print this help"<<endl;
@@ -312,7 +316,7 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
 
     // First check if each option has sufficient arguments:
     // Single argument
-    if ((Option == "-i") || (Option == "-o") || (Option == "--emin") || (Option == "--emax") || (Option == "--tcal") || (Option == "--tcut")) {
+    if ((Option == "-i") || (Option == "-o") || (Option == "--emin") || (Option == "--emax") || (Option == "--tcal") || (Option == "--tcut") || (Option == "-m")) {
       if (!((argc > i+1) && (argv[i+1][0] != '-' || isalpha(argv[i+1][1]) == 0))){
         cout<<"Error: Option "<<argv[i][1]<<" needs a second argument!"<<endl;
         cout<<Usage.str()<<endl;
@@ -354,6 +358,11 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
       cout<<"Accepting file name: "<<m_OutFile<<endl;
     }
 
+    if (Option == "-m"){
+      m_StripMapFile = argv[++i];
+      cout<<"Accepting file name: "<<m_StripMapFile<<endl;
+    }
+
     if (Option == "-p"){
       m_PixelCorrect = true;
     }
@@ -382,7 +391,7 @@ bool TrappingCorrection::Analyze()
 
   vector<MString> FileNames;
 
-  if ((m_FileName.GetSubString(m_FileName.Length() - 3)) == "roa"){
+  if ((m_FileName.GetSubString(m_FileName.Length() - 4)) == "hdf5") {
     FileNames.push_back(m_FileName);
   } else if ((m_FileName.GetSubString(m_FileName.Length() - 3)) == "txt") {
     MFile F;
@@ -401,21 +410,30 @@ bool TrappingCorrection::Analyze()
 
   for (unsigned int f = 0; f<FileNames.size(); ++f) {
 
-    MString ROAFile = FileNames[f];
+    MString InFile = FileNames[f];
 
-    cout<<"Beginning analysis of file "<<ROAFile<<endl;
+
+
+    cout<<"Beginning analysis of file "<<InFile<<endl;
 
     MSupervisor* S = MSupervisor::GetSupervisor();
     
-  	MModuleLoaderMeasurementsROA* Loader;
+  	MModuleLoaderMeasurementsHDF* Loader;
   	MModuleTACcut* TACCalibrator;
   	MModuleEnergyCalibrationUniversal* EnergyCalibrator;
   	MModuleEventFilter* EventFilter;
 
     unsigned int MNumber = 0;
-    cout<<"Creating ROA loader"<<endl;
-    Loader = new MModuleLoaderMeasurementsROA();
-    Loader->SetFileName(ROAFile);
+
+    if ((InFile.GetSubString(InFile.Length() - 4)) == "hdf5") {
+      cout<<"Creating HDF5 loader"<<endl;
+    } else {
+      cout<<"Input file must be hdf5 format. Got: "<<InFile<<". Exiting."<<endl;
+      return false;
+    }
+    Loader = new MModuleLoaderMeasurementsHDF();
+    Loader->SetFileNameStripMap(m_StripMapFile);
+    Loader->SetFileName(InFile);
     S->SetModule(Loader, MNumber);
     ++MNumber;
 
