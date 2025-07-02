@@ -160,6 +160,7 @@ private:
   //! option to do a pixel-by-pixel calibration (instead of detector-by-detector)
   bool m_PixelCorrect;
   bool m_GreedyPairing;
+  bool m_ExcludeNN;
 
   double m_MinEnergy;
   double m_MaxEnergy;
@@ -280,6 +281,7 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
   Usage<<"         -p:   do pixel-by-pixel correction"<<endl;
   Usage<<"         -m:   strip map file name (.map)"<<endl;
   Usage<<"         -g:   greedy strip pairing (default is chi-square)"<<endl;
+  Usage<<"         -n:   exclude nearest neighbors"<<endl;
   Usage<<"         -o:   outfile (default YYYYMMDDHHMMSS)"<<endl;
   Usage<<"         -h:   print this help"<<endl;
   Usage<<endl;
@@ -297,6 +299,7 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
 
   m_PixelCorrect = false;
   m_GreedyPairing = false;
+  m_ExcludeNN = false;
   m_MinEnergy = 40;
   m_MaxEnergy = 5000;
   
@@ -369,6 +372,10 @@ bool TrappingCorrection::ParseCommandLine(int argc, char** argv)
 
     if (Option == "-g"){
       m_GreedyPairing = true;
+    }
+
+    if (Option == "-n"){
+      m_ExcludeNN = true;
     }
 
   }
@@ -535,14 +542,16 @@ bool TrappingCorrection::Analyze()
               for (unsigned int sh = 0; sh < H->GetNStripHits(); ++sh) {
                 MStripHit* SH = H->GetStripHit(sh);
 
-                if (SH->IsLowVoltageStrip()==true) {
-                  LVEnergy += SH->GetEnergy();
-                  LVEnergyResolution += (SH->GetEnergyResolution())*(SH->GetEnergyResolution());
-                  LVStrips.push_back(SH);
-                } else {
-                  HVEnergy += SH->GetEnergy();
-                  HVEnergyResolution += (SH->GetEnergyResolution())*(SH->GetEnergyResolution());
-                  HVStrips.push_back(SH);
+                if ((m_ExcludeNN==false) || ((m_ExcludeNN==true) && (SH->IsNearestNeighbor()==false))) {
+                  if (SH->IsLowVoltageStrip()==true) {
+                    LVEnergy += SH->GetEnergy();
+                    LVEnergyResolution += (SH->GetEnergyResolution())*(SH->GetEnergyResolution());
+                    LVStrips.push_back(SH);
+                  } else {
+                    HVEnergy += SH->GetEnergy();
+                    HVEnergyResolution += (SH->GetEnergyResolution())*(SH->GetEnergyResolution());
+                    HVStrips.push_back(SH);
+                  }
                 }
               }
 
