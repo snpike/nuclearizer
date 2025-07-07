@@ -385,7 +385,9 @@ bool MModuleDepthCalibration2024::AnalyzeEvent(MReadOutAssembly* Event)
 
             // Add the depth to the GUI histogram.
             if (Event->IsStripPairingIncomplete()==false) {
-              m_ExpoDepthCalibration->AddDepth(DetID, Zpos);
+              if (HasExpos() == true) {
+                m_ExpoDepthCalibration->AddDepth(DetID, Zpos);
+              }
             }
             m_NoError+=1;
           }
