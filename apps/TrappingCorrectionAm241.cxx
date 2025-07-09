@@ -505,7 +505,7 @@ bool TrappingCorrectionAm241::Analyze()
     for (auto H: CTDHistograms[s]) {
       
       int ID = H.first;
-      if (H.second->Integral() > g_MinCounts) {
+      if ((H.second->Integral() > g_MinCounts) && (HVEnergyHistograms[s][ID]->Integral() > g_MinCounts) && (LVEnergyHistograms[s][ID]->Integral() > g_MinCounts)) {
 
         TFitResultPtr CTDFit = H.second->Fit("gaus", "SQ");
         TFitResultPtr HVFit = HVEnergyHistograms[s][ID]->Fit("gaus", "SQ");
