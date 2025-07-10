@@ -65,6 +65,9 @@ double g_MinCTD = -300;
 double g_MaxCTD = 300;
 int g_MinCounts = 1000;
 
+int g_HVStrips = 64;
+int g_LVStrips = 64;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 
@@ -269,6 +272,7 @@ bool TrappingCorrectionAm241::Analyze()
 
   // [CTD, HV Energy, LV Energy] for HV illumination and LV illumination
   map<unsigned int, vector<vector<double>>> Endpoints;
+  map<unsigned int, vector<vector<double>>> FullDetEndpoints;
 
   vector<MString> FileNames;
   FileNames.push_back(m_HVFileName);
@@ -278,29 +282,14 @@ bool TrappingCorrectionAm241::Analyze()
   IllumSide.push_back(MString("HV"));
   IllumSide.push_back(MString("LV"));
 
-  vector<map<int, TH1D*>> CTDHistograms;
-  map<int, TH1D*> tempCTDHistHV;
-  map<int, TH1D*> tempCTDHistLV;
-  CTDHistograms.push_back(tempCTDHistHV);
-  CTDHistograms.push_back(tempCTDHistLV);
-
-  vector<map<int, TH1D*>> HVEnergyHistograms;
-  map<int, TH1D*> tempHVHistHV;
-  map<int, TH1D*> tempHVHistLV;
-  HVEnergyHistograms.push_back(tempHVHistHV);
-  HVEnergyHistograms.push_back(tempHVHistLV);
-
-  vector<map<int, TH1D*>> LVEnergyHistograms;
-  map<int, TH1D*> tempLVHistHV;
-  map<int, TH1D*> tempLVHistLV;
-  LVEnergyHistograms.push_back(tempLVHistHV);
-  LVEnergyHistograms.push_back(tempLVHistLV);
-
-
   for (unsigned int s=0; s<2; ++s) {
 
     MString InputFile = FileNames[s];
     vector<MString> HDFNames;
+
+    map<int, TH1D*> CTDHistograms;
+    map<int, TH1D*> HVEnergyHistograms;
+    map<int, TH1D*> LVEnergyHistograms;
 
     if ((InputFile.GetSubString(InputFile.Length() - 4)) == "hdf5") {
       HDFNames.push_back(InputFile);
@@ -455,16 +444,16 @@ bool TrappingCorrectionAm241::Analyze()
                       Endpoints[PixelID].push_back(tempLVvec);
                     }
 
-                    TH1D* CTDHist = CTDHistograms[s][PixelID];
-                    TH1D* HVHist = HVEnergyHistograms[s][PixelID];
-                    TH1D* LVHist = LVEnergyHistograms[s][PixelID];
+                    TH1D* CTDHist = CTDHistograms[PixelID];
+                    TH1D* HVHist = HVEnergyHistograms[PixelID];
+                    TH1D* LVHist = LVEnergyHistograms[PixelID];
                     
                     if (CTDHist == nullptr) {
                       char name[64]; sprintf(name,"CTD: PixelID %d %s Illumination",PixelID,IllumSide[s].Data());
                       CTDHist = new TH1D(name, name, (g_MaxCTD - g_MinCTD)/2, g_MinCTD, g_MaxCTD);
                       CTDHist->SetXTitle("CTD (ns)");
                       CTDHist->SetYTitle("Hits");
-                      CTDHistograms[s][PixelID] = CTDHist;
+                      CTDHistograms[PixelID] = CTDHist;
                     }
 
                     if (HVHist == nullptr) {
@@ -472,7 +461,7 @@ bool TrappingCorrectionAm241::Analyze()
                       HVHist = new TH1D(name, name, (m_MaxEnergy - m_MinEnergy)*2, m_MinEnergy, m_MaxEnergy);
                       HVHist->SetXTitle("HV Energy (keV)");
                       HVHist->SetYTitle("Hits");
-                      HVEnergyHistograms[s][PixelID] = HVHist;
+                      HVEnergyHistograms[PixelID] = HVHist;
                     }
 
                     if (LVHist == nullptr) {
@@ -480,7 +469,7 @@ bool TrappingCorrectionAm241::Analyze()
                       LVHist = new TH1D(name, name, (m_MaxEnergy - m_MinEnergy)*2, m_MinEnergy, m_MaxEnergy);
                       LVHist->SetXTitle("LV Energy (keV)");
                       LVHist->SetYTitle("Hits");
-                      LVEnergyHistograms[s][PixelID] = LVHist;
+                      LVEnergyHistograms[PixelID] = LVHist;
                     }
 
                     CTDHist->Fill(CTD);
@@ -495,37 +484,15 @@ bool TrappingCorrectionAm241::Analyze()
         IsFinished = Loader->IsFinished();
       }
     }
-  }
-
-  map<unsigned int, vector<vector<double>>> FullDetEndpoints;
-
-  vector<map<int, TH1D*>> FullDetCTDHistograms;
-  map<int, TH1D*> FullDettempCTDHistHV;
-  map<int, TH1D*> FullDettempCTDHistLV;
-  FullDetCTDHistograms.push_back(FullDettempCTDHistHV);
-  FullDetCTDHistograms.push_back(FullDettempCTDHistLV);
-
-  vector<map<int, TH1D*>> FullDetHVEnergyHistograms;
-  map<int, TH1D*> FullDettempHVHistHV;
-  map<int, TH1D*> FullDettempHVHistLV;
-  FullDetHVEnergyHistograms.push_back(FullDettempHVHistHV);
-  FullDetHVEnergyHistograms.push_back(FullDettempHVHistLV);
-
-  vector<map<int, TH1D*>> FullDetLVEnergyHistograms;
-  map<int, TH1D*> FullDettempLVHistHV;
-  map<int, TH1D*> FullDettempLVHistLV;
-  FullDetLVEnergyHistograms.push_back(FullDettempLVHistHV);
-  FullDetLVEnergyHistograms.push_back(FullDettempLVHistLV);
-
-
-  for (unsigned int s=0; s<2; ++s) {
-
-    for (auto H: CTDHistograms[s]) {
+    
+    map<int, TH1D*> FullDetCTDHistograms;
+    map<int, TH1D*> FullDetHVEnergyHistograms;
+    map<int, TH1D*> FullDetLVEnergyHistograms;
+    
+    for (auto H: CTDHistograms) {
       
       int PixelID = H.first;
       int DetID = (PixelID-(PixelID%10000))/10000;
-      int LVSHID = (PixelID-(DetID*10000) - (PixelID%100))/100;
-      int HVSHID = (PixelID-(DetID*10000) - (LVSHID *100));
 
       if (FullDetEndpoints.find(DetID)==FullDetEndpoints.end()) {
         vector<double> tempHVvec;
@@ -536,16 +503,16 @@ bool TrappingCorrectionAm241::Analyze()
         FullDetEndpoints[DetID].push_back(tempLVvec);
       }
 
-      TH1D* CTDHist = FullDetCTDHistograms[s][DetID];
-      TH1D* HVHist = FullDetHVEnergyHistograms[s][DetID];
-      TH1D* LVHist = FullDetLVEnergyHistograms[s][DetID];
+      TH1D* CTDHist = FullDetCTDHistograms[DetID];
+      TH1D* HVHist = FullDetHVEnergyHistograms[DetID];
+      TH1D* LVHist = FullDetLVEnergyHistograms[DetID];
       
       if (CTDHist == nullptr) {
         char name[64]; sprintf(name,"CTD: DetID %d %s Illumination",DetID,IllumSide[s].Data());
         CTDHist = new TH1D(name, name, (g_MaxCTD - g_MinCTD)/2, g_MinCTD, g_MaxCTD);
         CTDHist->SetXTitle("CTD (ns)");
         CTDHist->SetYTitle("Hits");
-        FullDetCTDHistograms[s][DetID] = CTDHist;
+        FullDetCTDHistograms[DetID] = CTDHist;
       }
 
       if (HVHist == nullptr) {
@@ -553,7 +520,7 @@ bool TrappingCorrectionAm241::Analyze()
         HVHist = new TH1D(name, name, (m_MaxEnergy - m_MinEnergy)*2, m_MinEnergy, m_MaxEnergy);
         HVHist->SetXTitle("HV Energy (keV)");
         HVHist->SetYTitle("Hits");
-        FullDetHVEnergyHistograms[s][DetID] = HVHist;
+        FullDetHVEnergyHistograms[DetID] = HVHist;
       }
 
       if (LVHist == nullptr) {
@@ -561,42 +528,42 @@ bool TrappingCorrectionAm241::Analyze()
         LVHist = new TH1D(name, name, (m_MaxEnergy - m_MinEnergy)*2, m_MinEnergy, m_MaxEnergy);
         LVHist->SetXTitle("LV Energy (keV)");
         LVHist->SetYTitle("Hits");
-        FullDetLVEnergyHistograms[s][DetID] = LVHist;
+        FullDetLVEnergyHistograms[DetID] = LVHist;
       }
 
       CTDHist->Add(CTDHist, H.second);
-      HVHist->Add(HVHist, HVEnergyHistograms[s][ID]);
-      LVHist->Add(LVHist, LVEnergyHistograms[s][ID]);
+      HVHist->Add(HVHist, HVEnergyHistograms[PixelID]);
+      LVHist->Add(LVHist, LVEnergyHistograms[PixelID]);
 
       if (m_PixelCorrect==true) {
-        if ((H.second->Integral() > g_MinCounts) && (HVEnergyHistograms[s][ID]->Integral() > g_MinCounts) && (LVEnergyHistograms[s][ID]->Integral() > g_MinCounts)) {
+        if ((H.second->Integral() > g_MinCounts) && (HVEnergyHistograms[PixelID]->Integral() > g_MinCounts) && (LVEnergyHistograms[PixelID]->Integral() > g_MinCounts)) {
 
           TFitResultPtr CTDFit = H.second->Fit("gaus", "SQ");
-          TFitResultPtr HVFit = HVEnergyHistograms[s][ID]->Fit("gaus", "SQ");
-          TFitResultPtr LVFit = LVEnergyHistograms[s][ID]->Fit("gaus", "SQ");
+          TFitResultPtr HVFit = HVEnergyHistograms[PixelID]->Fit("gaus", "SQ");
+          TFitResultPtr LVFit = LVEnergyHistograms[PixelID]->Fit("gaus", "SQ");
 
           if ((!(CTDFit->IsEmpty())) && (!(HVFit->IsEmpty())) && (!(LVFit->IsEmpty()))) {
-            Endpoints[ID][s].push_back(CTDFit->Parameter(1));
-            Endpoints[ID][s].push_back(HVFit->Parameter(1));
-            Endpoints[ID][s].push_back(LVFit->Parameter(1));
+            Endpoints[PixelID][s].push_back(CTDFit->Parameter(1));
+            Endpoints[PixelID][s].push_back(HVFit->Parameter(1));
+            Endpoints[PixelID][s].push_back(LVFit->Parameter(1));
           } else {
-            cout<<"Fits failed for Pixel "<<ID<<endl;
+            cout<<"Fits failed for Pixel "<<PixelID<<endl;
           }
         } else {
-          cout<<"Fewer than "<<g_MinCounts<<" counts in Pixel ID "<<ID<<endl;
+          cout<<"Fewer than "<<g_MinCounts<<" counts in Pixel ID "<<PixelID<<endl;
         }
       }
     }
 
-    for (auto H: FullDetCTDHistograms[s]) {
+    for (auto H: FullDetCTDHistograms) {
 
       int DetID = H.first;
 
-      if ((H.second->Integral() > g_MinCounts) && (FullDetHVEnergyHistograms[s][DetID]->Integral() > g_MinCounts) && (FullDetLVEnergyHistograms[s][DetID]->Integral() > g_MinCounts)) {
+      if ((H.second->Integral() > g_MinCounts) && (FullDetHVEnergyHistograms[DetID]->Integral() > g_MinCounts) && (FullDetLVEnergyHistograms[DetID]->Integral() > g_MinCounts)) {
 
         TFitResultPtr CTDFit = H.second->Fit("gaus", "SQ");
-        TFitResultPtr HVFit = FullDetHVEnergyHistograms[s][DetID]->Fit("gaus", "SQ");
-        TFitResultPtr LVFit = FullDetLVEnergyHistograms[s][DetID]->Fit("gaus", "SQ");
+        TFitResultPtr HVFit = FullDetHVEnergyHistograms[DetID]->Fit("gaus", "SQ");
+        TFitResultPtr LVFit = FullDetLVEnergyHistograms[DetID]->Fit("gaus", "SQ");
 
         if ((!(CTDFit->IsEmpty())) && (!(HVFit->IsEmpty())) && (!(LVFit->IsEmpty()))) {
           FullDetEndpoints[DetID][s].push_back(CTDFit->Parameter(1));
@@ -625,9 +592,9 @@ bool TrappingCorrectionAm241::Analyze()
           TCanvas* HVHistCanvas = new TCanvas();
           HVHistCanvas->SetLogz();
           HVHistCanvas->cd();
-          FullDetHVEnergyHistograms[s][DetID]->Draw("colz");
+          FullDetHVEnergyHistograms[DetID]->Draw("colz");
 
-          FullDetHVEnergyHistograms[s][DetID]->Write();
+          FullDetHVEnergyHistograms[DetID]->Write();
           HVHistFile.Close();
 
           TFile LVHistFile(m_OutFile+MString("_Det")+DetID+MString("_LVEnergyHist_") + IllumSide[s]+ MString("Illum.root"),"recreate");
@@ -635,16 +602,16 @@ bool TrappingCorrectionAm241::Analyze()
           TCanvas* LVHistCanvas = new TCanvas();
           LVHistCanvas->SetLogz();
           LVHistCanvas->cd();
-          FullDetLVEnergyHistograms[s][DetID]->Draw("colz");
+          FullDetLVEnergyHistograms[DetID]->Draw("colz");
 
-          FullDetLVEnergyHistograms[s][DetID]->Write();
+          FullDetLVEnergyHistograms[DetID]->Write();
           LVHistFile.Close();
 
         } else {
           cout<<"Fits failed for Det "<<DetID<<endl;
         }
       } else {
-        cout<<"Fewer than "<<g_MinCounts<<" counts in Det ID "<<ID<<endl;
+        cout<<"Fewer than "<<g_MinCounts<<" counts in Det "<<DetID<<endl;
       }
     }
   }
@@ -657,46 +624,56 @@ bool TrappingCorrectionAm241::Analyze()
   map<int, TH2D*> DeltaHV;
   map<int, TH2D*> DeltaLV;
 
-  for (auto E: Endpoints) {
-    int ID = E.first;
+  for (auto E: FullDetEndpoints) {
+    
+    int DetID = E.first;
+
+    double HVSlope = 0;
+    double LVSlope = 0;
+
     if ((E.second[0].size() > 0) && (E.second[1].size() > 0)) {
-      double HVSlope = (E.second[0][1] - E.second[1][1])/(E.second[0][0] - E.second[1][0]);
-      double LVSlope = (E.second[0][2] - E.second[1][2])/(E.second[0][0] - E.second[1][0]);
-      if (m_PixelCorrect==true) {
-        int DetID = (ID-(ID%10000))/10000;
-        int LVSHID = (ID-(DetID*10000) - (ID%100))/100;
-        int HVSHID = (ID-(DetID*10000) - (LVSHID *100));
-        OutputCalFile<<to_string(DetID)<<'\t'<<to_string(HVSHID)<<'\t'<<to_string(LVSHID)<<'\t'<<to_string(HVSlope)<<'\t'<<to_string(LVSlope)<<endl<<endl;
+      HVSlope = (E.second[0][1] - E.second[1][1])/(E.second[0][0] - E.second[1][0]);
+      LVSlope = (E.second[0][2] - E.second[1][2])/(E.second[0][0] - E.second[1][0]);
+    }
 
-        TH2D* TempHV = DeltaHV[DetID];
-        TH2D* TempLV = DeltaLV[DetID];
-        if (TempHV == nullptr) {
+    for (int hv=0; hv<g_HVStrips; ++hv) {
+      for (int lv=0; lv<g_LVStrips; ++lv) {
+        if (m_PixelCorrect==true) {
 
-          char HVname[64]; sprintf(HVname,"Delta HV Map: Det %d",DetID);
-          TempHV = new TH2D(HVname, HVname, 64, 0, 64, 64, 0, 64);
-          TempHV->SetXTitle("HV Strip");
-          TempHV->SetYTitle("LV Strip");
-          TempHV->SetZTitle("Delta HV Energy");
-          
-          char LVname[64]; sprintf(LVname,"Delta LV Map: Det %d",DetID);
-          TempLV = new TH2D(LVname, LVname, 64, 0, 64, 64, 0, 64);
-          TempLV->SetXTitle("HV Strip");
-          TempLV->SetYTitle("LV Strip");
-          TempLV->SetZTitle("Delta LV Energy");
+          int PixelID = (10000*DetID) + (100*lv) + hv;
 
-          DeltaHV[DetID] = TempHV;
-          DeltaLV[DetID] = TempLV;
-        }
+          if (Endpoints.find(PixelID)!=Endpoints.end()) {
+            if ((Endpoints[PixelID][0].size() > 0) && (Endpoints[PixelID][1].size() > 0)) {
+              
+              HVSlope = (Endpoints[PixelID][0][1] - Endpoints[PixelID][1][1])/(Endpoints[PixelID][0][0] - Endpoints[PixelID][1][0]);
+              LVSlope = (Endpoints[PixelID][0][2] - Endpoints[PixelID][1][2])/(Endpoints[PixelID][0][0] - Endpoints[PixelID][1][0]);
 
-        DeltaHV[DetID]->SetBinContent(HVSHID, LVSHID, E.second[0][1] - E.second[1][1]);
-        DeltaLV[DetID]->SetBinContent(HVSHID, LVSHID, E.second[0][2] - E.second[1][2]);
+              TH2D* TempHV = DeltaHV[DetID];
+              TH2D* TempLV = DeltaLV[DetID];
+              
+              if (TempHV == nullptr) {
 
-      } else {
-        for (int hv=0; hv<64; ++hv) {
-          for (int lv=0; lv<64; ++lv) {
-            OutputCalFile<<to_string(ID)<<'\t'<<to_string(hv)<<'\t'<<to_string(lv)<<'\t'<<to_string(HVSlope)<<'\t'<<to_string(LVSlope)<<endl<<endl;
+                char HVname[64]; sprintf(HVname,"Delta HV Map: Det %d",DetID);
+                TempHV = new TH2D(HVname, HVname, g_HVStrips, 0, g_HVStrips, g_LVStrips, 0, g_LVStrips);
+                TempHV->SetXTitle("HV Strip");
+                TempHV->SetYTitle("LV Strip");
+                TempHV->SetZTitle("Delta HV Energy");
+                
+                char LVname[64]; sprintf(LVname,"Delta LV Map: Det %d",DetID);
+                TempLV = new TH2D(LVname, LVname, g_HVStrips, 0, g_HVStrips, g_LVStrips, 0, g_LVStrips);
+                TempLV->SetXTitle("HV Strip");
+                TempLV->SetYTitle("LV Strip");
+                TempLV->SetZTitle("Delta LV Energy");
+
+                DeltaHV[DetID] = TempHV;
+                DeltaLV[DetID] = TempLV;
+              }
+              DeltaHV[DetID]->SetBinContent(hv, lv, Endpoints[PixelID][0][1] - Endpoints[PixelID][1][1]);
+              DeltaLV[DetID]->SetBinContent(hv, lv, Endpoints[PixelID][0][2] - Endpoints[PixelID][1][2]);
+            }
           }
         }
+        OutputCalFile<<to_string(DetID)<<'\t'<<to_string(hv)<<'\t'<<to_string(lv)<<'\t'<<to_string(HVSlope)<<'\t'<<to_string(LVSlope)<<endl<<endl;
       }
     }
   }
