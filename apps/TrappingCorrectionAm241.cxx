@@ -37,6 +37,8 @@ using namespace std;
 #include <TCanvas.h>
 #include <TH1.h>
 #include <TH2.h>
+#include <TF1.h>
+#include <TF1Convolution.h>
 #include <TGraph2D.h>
 #include <TFitResultPtr.h>
 #include <TFitResult.h>
@@ -61,8 +63,8 @@ using namespace std;
 #include "MAssembly.h"
 
 
-double g_MinCTD = -300;
-double g_MaxCTD = 300;
+double g_MinCTD = -400;
+double g_MaxCTD = 400;
 int g_MinCounts = 1000;
 
 int g_HVStrips = 64;
@@ -86,6 +88,10 @@ public:
   bool Analyze();
   //! Interrupt the analysis
   void Interrupt() { m_Interrupt = true; }
+
+  //! Produce functions for fitting
+  TF1* GenerateCTDFunction(double CTDFitMin, double CTDFitMax, double CTDGuess, double FlipSwitch);
+  TF1* GeneratePhotopeakFunction();
 
   MStripHit* GetDominantStrip(vector<MStripHit*>& Strips, double& EnergyFraction);
 
@@ -283,6 +289,19 @@ bool TrappingCorrectionAm241::Analyze()
   IllumSide.push_back(MString("LV"));
 
   for (unsigned int s=0; s<2; ++s) {
+
+    double CTDFitMin, CTDFitMax, CTDGuess, FlipSwitch;
+    if (IllumSide[s]=="HV") {
+      FlipSwitch = 1;
+      CTDFitMin = g_MinCTD;
+      CTDFitMax = 0;
+      CTDGuess = -300;
+    } else {
+      FlipSwitch = -1;
+      CTDFitMin = 0;
+      CTDFitMax = g_MaxCTD;
+      CTDGuess = 300;
+    }
 
     MString InputFile = FileNames[s];
     vector<MString> HDFNames;
@@ -537,13 +556,18 @@ bool TrappingCorrectionAm241::Analyze()
 
       if (m_PixelCorrect==true) {
         if ((H.second->Integral() > g_MinCounts) && (HVEnergyHistograms[PixelID]->Integral() > g_MinCounts) && (LVEnergyHistograms[PixelID]->Integral() > g_MinCounts)) {
+          
+          TF1* CTDFunction = GenerateCTDFunction(CTDFitMin, CTDFitMax, CTDGuess, FlipSwitch);
+          TFitResultPtr CTDFit = H.second->Fit(CTDFunction, "SQ", "", CTDFitMin, CTDFitMax);
 
-          TFitResultPtr CTDFit = H.second->Fit("gaus", "SQ");
-          TFitResultPtr HVFit = HVEnergyHistograms[PixelID]->Fit("gaus", "SQ");
-          TFitResultPtr LVFit = LVEnergyHistograms[PixelID]->Fit("gaus", "SQ");
+          TF1* PhotopeakFunctionHV = GeneratePhotopeakFunction();
+          TFitResultPtr HVFit = HVEnergyHistograms[PixelID]->Fit(PhotopeakFunctionHV, "SQ", "", 55, 70);
+
+          TF1* PhotopeakFunctionLV = GeneratePhotopeakFunction();
+          TFitResultPtr LVFit = LVEnergyHistograms[PixelID]->Fit(PhotopeakFunctionLV, "SQ", "", 55, 70);
 
           if ((!(CTDFit->IsEmpty())) && (!(HVFit->IsEmpty())) && (!(LVFit->IsEmpty()))) {
-            Endpoints[PixelID][s].push_back(CTDFit->Parameter(1));
+            Endpoints[PixelID][s].push_back(CTDFit->Parameter(2));
             Endpoints[PixelID][s].push_back(HVFit->Parameter(1));
             Endpoints[PixelID][s].push_back(LVFit->Parameter(1));
           } else {
@@ -561,12 +585,17 @@ bool TrappingCorrectionAm241::Analyze()
 
       if ((H.second->Integral() > g_MinCounts) && (FullDetHVEnergyHistograms[DetID]->Integral() > g_MinCounts) && (FullDetLVEnergyHistograms[DetID]->Integral() > g_MinCounts)) {
 
-        TFitResultPtr CTDFit = H.second->Fit("gaus", "SQ");
-        TFitResultPtr HVFit = FullDetHVEnergyHistograms[DetID]->Fit("gaus", "SQ");
-        TFitResultPtr LVFit = FullDetLVEnergyHistograms[DetID]->Fit("gaus", "SQ");
+        TF1* CTDFunction = GenerateCTDFunction(CTDFitMin, CTDFitMax, CTDGuess, FlipSwitch);
+        TFitResultPtr CTDFit = H.second->Fit(CTDFunction, "SQ", "", CTDFitMin, CTDFitMax);
+
+        TF1* PhotopeakFunctionHV = GeneratePhotopeakFunction();
+        TFitResultPtr HVFit = FullDetHVEnergyHistograms[DetID]->Fit(PhotopeakFunctionHV, "SQ", "", 55, 70);
+
+        TF1* PhotopeakFunctionLV = GeneratePhotopeakFunction();
+        TFitResultPtr LVFit = FullDetLVEnergyHistograms[DetID]->Fit(PhotopeakFunctionLV, "SQ", "", 55, 70);
 
         if ((!(CTDFit->IsEmpty())) && (!(HVFit->IsEmpty())) && (!(LVFit->IsEmpty()))) {
-          FullDetEndpoints[DetID][s].push_back(CTDFit->Parameter(1));
+          FullDetEndpoints[DetID][s].push_back(CTDFit->Parameter(2));
           FullDetEndpoints[DetID][s].push_back(HVFit->Parameter(1));
           FullDetEndpoints[DetID][s].push_back(LVFit->Parameter(1));
 
@@ -619,7 +648,7 @@ bool TrappingCorrectionAm241::Analyze()
   //setup output file
   ofstream OutputCalFile;
   OutputCalFile.open(m_OutFile+MString("_parameters.txt"));
-  OutputCalFile<<"Det ID"<<"HV Strip ID"<<"LV Strip ID"<<'\t'<<"HV Slope"<<'\t'<<"LV Slope"<<endl<<endl;
+  OutputCalFile<<"# Det ID"<<'\t'<<"HV Strip ID"<<'\t'<<"LV Strip ID"<<'\t'<<"HV Slope"<<'\t'<<"LV Slope"<<endl<<endl;
 
   map<int, TH2D*> DeltaHV;
   map<int, TH2D*> DeltaLV;
@@ -705,6 +734,56 @@ bool TrappingCorrectionAm241::Analyze()
   cout<<"total time (s): "<<watch.CpuTime()<<endl;
  
   return true;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+TF1* TrappingCorrectionAm241::GeneratePhotopeakFunction()
+{
+  // Gaussian with a low-E shelf
+  TF1* PhotopeakFunction = new TF1("PhotopeakFunction", "gaus(0) + [0]*[3]*(1 - erf((x-[1])/(sqrt(2)*[2])))", 55, 70);
+
+  PhotopeakFunction->SetParName(0, "Gauss norm");
+  PhotopeakFunction->SetParName(1, "Mu");
+  PhotopeakFunction->SetParName(2, "Sigma");
+  PhotopeakFunction->SetParName(3, "Shelf norm");
+
+  PhotopeakFunction->SetParameter("Gauss norm", 1000);
+  PhotopeakFunction->SetParameter("Mu", 60);
+  PhotopeakFunction->SetParameter("Sigma", 2);
+  PhotopeakFunction->SetParameter("Shelf norm", 0.05);
+
+  PhotopeakFunction->SetParLimits(1, 55, 65);
+  PhotopeakFunction->SetParLimits(3, 0, 0.1);
+
+  return PhotopeakFunction;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+TF1* TrappingCorrectionAm241::GenerateCTDFunction(double CTDFitMin, double CTDFitMax, double CTDGuess, double FlipSwitch)
+{
+  // Exponentially modified gaussian
+  TF1* CTDFunction = new TF1("CTDFunction", "[0]*([1]/2)*exp(([1]/2)*(([1]*[3]*[3]) - 2*[4]*(x-[2])))*erfc((([1]*[3]*[3]) - [4]*(x-[2]))/([3]*sqrt(2)))", g_MinCTD, g_MaxCTD);
+
+  CTDFunction->SetParName(0, "Norm");
+  CTDFunction->SetParName(1, "Lambda");
+  CTDFunction->SetParName(2, "Mu");
+  CTDFunction->SetParName(3, "Sigma");
+  CTDFunction->SetParName(4, "Flip");
+
+  CTDFunction->SetParameter("Norm", 1000);
+  CTDFunction->SetParameter("Lambda", 0.05);
+  CTDFunction->SetParameter("Sigma", 16);
+  CTDFunction->SetParameter("Mu", CTDGuess);
+  CTDFunction->FixParameter(4, FlipSwitch);
+  CTDFunction->SetParLimits(2, CTDFitMin, CTDFitMax);
+
+  return CTDFunction;
 }
 
 
