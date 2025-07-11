@@ -755,7 +755,9 @@ TF1* TrappingCorrectionAm241::GeneratePhotopeakFunction()
   PhotopeakFunction->SetParameter("Sigma", 2);
   PhotopeakFunction->SetParameter("Shelf norm", 0.05);
 
+  PhotopeakFunction->SetParLimits(0, 10, 1e8);
   PhotopeakFunction->SetParLimits(1, 55, 65);
+  PhotopeakFunction->SetParLimits(2, 0.1, 10);
   PhotopeakFunction->SetParLimits(3, 0, 0.1);
 
   return PhotopeakFunction;
@@ -781,7 +783,11 @@ TF1* TrappingCorrectionAm241::GenerateCTDFunction(double CTDFitMin, double CTDFi
   CTDFunction->SetParameter("Sigma", 16);
   CTDFunction->SetParameter("Mu", CTDGuess);
   CTDFunction->FixParameter(4, FlipSwitch);
+
+  CTDFunction->SetParLimits(0, 0, 1e8);
+  CTDFunction->SetParLimits(1, 0, 1);
   CTDFunction->SetParLimits(2, CTDFitMin, CTDFitMax);
+  CTDFunction->SetParLimits(3, 0, 100);
 
   return CTDFunction;
 }
