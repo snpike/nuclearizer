@@ -371,7 +371,7 @@ bool TrappingCorrectionAm241::Analyze()
       ++MNumber;
 
       cout<<"Creating Event filter"<<endl;
-      //! Only use events with 1 Strip Hit on each side to avoid strip pairing complications
+      //! Only use events with 1 to 3 Strip Hits on each side
       EventFilter = new MModuleEventFilter();
       EventFilter->SetMinimumLVStrips(1);
       EventFilter->SetMaximumLVStrips(3);
@@ -422,6 +422,7 @@ bool TrappingCorrectionAm241::Analyze()
             
             Pairing->AnalyzeEvent(Event);
 
+            // Only look at events with 1 Hit since we're interested in the 60keV photopeak.
             if ((Event->HasAnalysisProgress(MAssembly::c_StripPairing) == true) && (Unfiltered==true) && (Event->GetNHits()==1)) {
               
               for (unsigned int h = 0; h < Event->GetNHits(); ++h) {
@@ -634,6 +635,7 @@ bool TrappingCorrectionAm241::Analyze()
       }
     }
 
+    // Fit and plot the detector-level histograms
     for (auto H: FullDetCTDHistograms) {
 
       int DetID = H.first;
@@ -732,6 +734,8 @@ bool TrappingCorrectionAm241::Analyze()
   map<int, TH1D*> DeltaHVHist;
   map<int, TH1D*> DeltaLVHist;
 
+  // Write the results of good fits to the output file and produce summary plots.
+  // If an individual pixel did not produce a good fit, default to the detector-level parameters.
   for (auto E: FullDetEndpoints) {
     
     int DetID = E.first;
@@ -830,6 +834,7 @@ bool TrappingCorrectionAm241::Analyze()
 
   OutputCalFile.close();
 
+  // Save and plot the summary figures.
   if (m_PixelCorrect==true) {
     for (auto H: DeltaHVMap) {
       
