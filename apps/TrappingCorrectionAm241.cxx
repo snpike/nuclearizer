@@ -298,21 +298,21 @@ bool TrappingCorrectionAm241::Analyze()
 
   for (unsigned int s=0; s<2; ++s) {
 
-    double CTDFitMin, CTDFitMax, CTDGuess, FlipSwitch;
+    double CTDFitMin, CTDFitMax, FlipSwitch;
     if (IllumSide[s]=="HV") {
       FlipSwitch = 1;
       CTDFitMin = g_MinCTD;
       CTDFitMax = 0;
-      CTDGuess = -300;
     } else {
       FlipSwitch = -1;
       CTDFitMin = 0;
       CTDFitMax = g_MaxCTD;
-      CTDGuess = 300;
     }
 
     MString InputFile = FileNames[s];
     vector<MString> HDFNames;
+
+    TH1::SetDefaultSumw2();
 
     map<int, TH1D*> CTDHistograms;
     map<int, TH1D*> HVEnergyHistograms;
@@ -635,6 +635,7 @@ bool TrappingCorrectionAm241::Analyze()
 
       if ((H.second->Integral() > g_MinCounts) && (FullDetHVEnergyHistograms[DetID]->Integral() > g_MinCounts) && (FullDetLVEnergyHistograms[DetID]->Integral() > g_MinCounts)) {
 
+        double CTDGuess = H.second->GetBinCenter(H.second->GetMaximumBin());
         TF1* CTDFunction = GenerateCTDFunction(CTDFitMin, CTDFitMax, CTDGuess, FlipSwitch);
         TFitResultPtr CTDFit = H.second->Fit(CTDFunction, "SQ", "", CTDFitMin, CTDFitMax);
 
@@ -807,7 +808,7 @@ TF1* TrappingCorrectionAm241::GeneratePhotopeakFunction()
 
   PhotopeakFunction->SetParLimits(0, 10, 1e8);
   PhotopeakFunction->SetParLimits(1, 55, 65);
-  PhotopeakFunction->SetParLimits(2, 0.1, 10);
+  PhotopeakFunction->SetParLimits(2, 1.0, 10);
   PhotopeakFunction->SetParLimits(3, 0, 0.1);
 
   return PhotopeakFunction;
@@ -820,7 +821,7 @@ TF1* TrappingCorrectionAm241::GeneratePhotopeakFunction()
 TF1* TrappingCorrectionAm241::GenerateCTDFunction(double CTDFitMin, double CTDFitMax, double CTDGuess, double FlipSwitch)
 {
   // Exponentially modified gaussian
-  TF1* CTDFunction = new TF1("CTDFunction", "[0]*([1]/2)*exp(([1]/2)*(([1]*[3]*[3]) - 2*[4]*(x-[2])))*erfc((([1]*[3]*[3]) - [4]*(x-[2]))/([3]*sqrt(2)))", g_MinCTD, g_MaxCTD);
+  TF1* CTDFunction = new TF1("CTDFunction", "[0]*([1]/2)*exp(([1]/2)*(([1]*[3]*[3]) - 2*[4]*(x-[2])))*erfc((([1]*[3]*[3]) - [4]*(x-[2]))/([3]*sqrt(2)))", CTDFitMin, CTDFitMax);
 
   CTDFunction->SetParName(0, "Norm");
   CTDFunction->SetParName(1, "Lambda");
@@ -830,14 +831,14 @@ TF1* TrappingCorrectionAm241::GenerateCTDFunction(double CTDFitMin, double CTDFi
 
   CTDFunction->SetParameter("Norm", 1000);
   CTDFunction->SetParameter("Lambda", 0.05);
-  CTDFunction->SetParameter("Sigma", 16);
+  CTDFunction->SetParameter("Sigma", 12);
   CTDFunction->SetParameter("Mu", CTDGuess);
   CTDFunction->FixParameter(4, FlipSwitch);
 
   CTDFunction->SetParLimits(0, 0, 1e8);
-  CTDFunction->SetParLimits(1, 0, 1);
+  CTDFunction->SetParLimits(1, 0.01, 1);
   CTDFunction->SetParLimits(2, CTDFitMin, CTDFitMax);
-  CTDFunction->SetParLimits(3, 0, 100);
+  CTDFunction->SetParLimits(3, 6, 30);
 
   return CTDFunction;
 }
