@@ -459,7 +459,7 @@ bool TrappingCorrection::Analyze()
     ++MNumber;
 
     cout<<"Creating Event filter"<<endl;
-    //! Only use events with 1 Strip Hit on each side to avoid strip pairing complications
+    //! Only use events with 1 to 3 Strip Hits on each side to avoid strip pairing complications
     EventFilter = new MModuleEventFilter();
     EventFilter->SetMinimumLVStrips(1);
     EventFilter->SetMaximumLVStrips(3);
