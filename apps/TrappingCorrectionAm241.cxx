@@ -17,6 +17,7 @@
 
 // Standard
 #include <iostream>
+#include <filesystem>
 #include <string>
 #include <sstream>
 #include <csignal>
@@ -288,6 +289,13 @@ bool TrappingCorrectionAm241::Analyze()
   IllumSide.push_back(MString("HV"));
   IllumSide.push_back(MString("LV"));
 
+  MString PixelDir = m_OutFile + MString("_pixeldata");
+  if (m_PixelCorrect==true) {
+    if (std::filesystem::create_directories(PixelDir.Data())==false) {
+      cout<<"Directory '"<<PixelDir<<"' already exists or could not be created."<<endl;
+    }
+  }
+
   for (unsigned int s=0; s<2; ++s) {
 
     double CTDFitMin, CTDFitMax, CTDGuess, FlipSwitch;
@@ -555,16 +563,46 @@ bool TrappingCorrectionAm241::Analyze()
       LVHist->Add(LVHist, LVEnergyHistograms[PixelID]);
 
       if (m_PixelCorrect==true) {
+
+        // Write each of the histograms to a root file
         if ((H.second->Integral() > g_MinCounts) && (HVEnergyHistograms[PixelID]->Integral() > g_MinCounts) && (LVEnergyHistograms[PixelID]->Integral() > g_MinCounts)) {
           
+          double CTDGuess = H.second->GetBinCenter(H.second->GetMaximumBin());
           TF1* CTDFunction = GenerateCTDFunction(CTDFitMin, CTDFitMax, CTDGuess, FlipSwitch);
           TFitResultPtr CTDFit = H.second->Fit(CTDFunction, "SQ", "", CTDFitMin, CTDFitMax);
+
+          ofstream CTDFitFile(PixelDir +MString("/") + PixelID+MString("_CTDFitResult_")+IllumSide[s]+ MString("Illum.txt"));
+          streambuf* coutbuf = cout.rdbuf();
+          cout.rdbuf(CTDFitFile.rdbuf());
+          if (CTDFit.Get()) {
+              CTDFit->Print();
+          }
+          cout.rdbuf(coutbuf);
+          CTDFitFile.close();
 
           TF1* PhotopeakFunctionHV = GeneratePhotopeakFunction();
           TFitResultPtr HVFit = HVEnergyHistograms[PixelID]->Fit(PhotopeakFunctionHV, "SQ", "", 55, 70);
 
+          ofstream HVFitFile(PixelDir +MString("/") + PixelID+MString("_HVEnergyFitResult_")+IllumSide[s]+ MString("Illum.txt"));
+          coutbuf = cout.rdbuf();
+          cout.rdbuf(HVFitFile.rdbuf());
+          if (HVFit.Get()) {
+              HVFit->Print();
+          }
+          cout.rdbuf(coutbuf);
+          HVFitFile.close();
+
           TF1* PhotopeakFunctionLV = GeneratePhotopeakFunction();
           TFitResultPtr LVFit = LVEnergyHistograms[PixelID]->Fit(PhotopeakFunctionLV, "SQ", "", 55, 70);
+          
+          ofstream LVFitFile(PixelDir +MString("/") + PixelID+MString("_LVEnergyFitResult_")+IllumSide[s]+ MString("Illum.txt"));
+          coutbuf = cout.rdbuf();
+          cout.rdbuf(LVFitFile.rdbuf());
+          if (LVFit.Get()) {
+              LVFit->Print();
+          }
+          cout.rdbuf(coutbuf);
+          LVFitFile.close();
 
           if ((!(CTDFit->IsEmpty())) && (!(HVFit->IsEmpty())) && (!(LVFit->IsEmpty()))) {
             Endpoints[PixelID][s].push_back(CTDFit->Parameter(2));
@@ -576,6 +614,18 @@ bool TrappingCorrectionAm241::Analyze()
         } else {
           cout<<"Fewer than "<<g_MinCounts<<" counts in Pixel ID "<<PixelID<<endl;
         }
+
+        TFile CTDHistFile(PixelDir+MString("/")+PixelID+MString("_CTDHist_") + IllumSide[s]+ MString("Illum.root"),"recreate");
+        H.second->Write();
+        CTDHistFile.Close();
+
+        TFile HVHistFile(PixelDir+MString("/")+PixelID+MString("_HVEnergyHist_") + IllumSide[s]+ MString("Illum.root"),"recreate");
+        HVEnergyHistograms[PixelID]->Write();
+        HVHistFile.Close();
+
+        TFile LVHistFile(PixelDir+MString("/")+PixelID+MString("_LVEnergyHist_") + IllumSide[s]+ MString("Illum.root"),"recreate");
+        LVEnergyHistograms[PixelID]->Write();
+        LVHistFile.Close();
       }
     }
 
