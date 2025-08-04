@@ -604,7 +604,7 @@ bool TrappingCorrectionAm241::Analyze()
           cout.rdbuf(coutbuf);
           LVFitFile.close();
 
-          if ((!(CTDFit->IsEmpty())) && (!(HVFit->IsEmpty())) && (!(LVFit->IsEmpty()))) {
+          if ((!(CTDFit->IsEmpty())) && (!(HVFit->IsEmpty())) && (!(LVFit->IsEmpty())) && ((CTDFit->Chi2()/CTDFit->Ndf()) < 5) && ((HVFit->Chi2()/HVFit->Ndf()) < 5) && ((LVFit->Chi2()/LVFit->Ndf()) < 5)) {
             Endpoints[PixelID][s].push_back(CTDFit->Parameter(2));
             Endpoints[PixelID][s].push_back(HVFit->Parameter(1));
             Endpoints[PixelID][s].push_back(LVFit->Parameter(1));
