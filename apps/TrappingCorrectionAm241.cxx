@@ -66,10 +66,12 @@ using namespace std;
 
 double g_MinCTD = -400;
 double g_MaxCTD = 400;
-int g_MinCounts = 1000;
+int g_MinCounts = 250;
 
 int g_HVStrips = 64;
 int g_LVStrips = 64;
+
+double g_AmPhotopeak = 59.54;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -332,6 +334,7 @@ bool TrappingCorrectionAm241::Analyze()
       }
     }
 
+    // Analyze all the data and fill in the histograms
     for (unsigned int f = 0; f<HDFNames.size(); ++f) {
 
       MString File = HDFNames[f];
@@ -516,6 +519,8 @@ bool TrappingCorrectionAm241::Analyze()
     map<int, TH1D*> FullDetHVEnergyHistograms;
     map<int, TH1D*> FullDetLVEnergyHistograms;
     
+    // Add up the pixel-level histograms to get full detector histograms
+    // Fit to the pixel-level histograms and record the results
     for (auto H: CTDHistograms) {
       
       int PixelID = H.first;
